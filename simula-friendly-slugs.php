@@ -35,14 +35,14 @@ final class Simula_Friendly_Slugs {
     public static function instance() {
         if ( null === self::$instance ) {
             self::$instance = new self();
-            self::$instance->setup_hooks();
+            self::$instance->init_hooks();
         }
         return self::$instance;
     }
 
 
     /** Setup WordPress hooks */
-    private function setup_hooks() {
+    private function init_hooks() {
         // Load textdomain
         add_action( 'init', array( $this, 'load_textdomain' ) );
 
@@ -57,20 +57,20 @@ final class Simula_Friendly_Slugs {
     /** Load plugin textdomain */
     public function load_textdomain() {
         load_plugin_textdomain(
-            self::PLUGIN_SLUG,
+            self::TEXT_DOMAIN,
             false,
             dirname( plugin_basename( __FILE__ ) ) . '/languages'
         );
     }
 
 
-    /** Register admin settings page */
+    /** Add settings page under Settings menu */
     public function register_settings_page() {
         add_options_page(
-            __( 'Simula Friendly Arabic Slugs', 'simula-friendly-slugs' ),
-            __( 'Simula Friendly Arabic Slugs', 'simula-friendly-slugs' ),
+            __( 'Arabic Slugs', self::TEXT_DOMAIN ),
+            __( 'Arabic Slugs', self::TEXT_DOMAIN ),
             'manage_options',
-            self::PLUGIN_SLUG,
+            self::TEXT_DOMAIN,
             array( $this, 'render_settings_page' )
         );
     }
@@ -78,24 +78,24 @@ final class Simula_Friendly_Slugs {
     /** Register settings and fields */
     public function register_settings() {
         register_setting(
-            'simula_friendly_slugs_group',
+            self::TEXT_DOMAIN,
             self::OPTION_KEY,
             array( $this, 'sanitize_settings' )
         );
 
         add_settings_section(
             'simula_friendly_slugs_main',
-            __( 'Default Slug Method', 'simula-friendly-slugs' ),
+            __( 'Default Slug Method', self::TEXT_DOMAIN ),
             '__return_false',
-            'simula_friendly_slugs'
+            self::TEXT_DOMAIN
         );
 
         add_settings_field(
             'method',
-            __( 'Method', 'simula-friendly-slugs' ),
+            __( 'Method', self::TEXT_DOMAIN ),
             array( $this, 'field_method_html' ),
-            'simula_friendly_slugs',
-            'simula_friendly_slugs_main'
+            self::TEXT_DOMAIN,
+            'simula_friendly_slugs_section'
         );
     }    
     
@@ -112,7 +112,7 @@ final class Simula_Friendly_Slugs {
 
     /** Settings field HTML */
     public function field_method_html() {
-        $options = get_option( self::OPTION_KEY );
+        $options = get_option( self::OPTION_KEY, [] );
         $current = isset( $options['method'] ) ? $options['method'] : 'transliteration';
         ?>
         <select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[method]">
@@ -128,11 +128,11 @@ final class Simula_Friendly_Slugs {
     public function render_settings_page() {
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e( 'Simula Friendly Arabic Slugs Settings', 'simula-friendly-slugs' ); ?></h1>
+            <h1><?php esc_html_e( 'Simula Friendly Arabic Slugs Settings',  self::TEXT_DOMAIN ); ?></h1>
             <form action="options.php" method="post">
                 <?php
-                settings_fields( 'simula_friendly_slugs_group' );
-                do_settings_sections( 'simula_friendly_slugs' );
+                settings_fields( self::TEXT_DOMAIN );
+                do_settings_sections( self::TEXT_DOMAIN );
                 submit_button();
                 ?>
             </form>
@@ -141,44 +141,91 @@ final class Simula_Friendly_Slugs {
     }
 
     /** Filter slug on save */
-    public function filter_custom_slug( $slug, $post_ID, $post_status, $post_type, $post_parent, $original_slug ) {
+    public function filter_custom_slug( $override_slug, $post_ID, $post_status, $post_type, $post_parent, $original_slug ) {
         // Get the post object
         $post = get_post( $post_ID );
-        if ( ! $post ) {
-            return $slug;
+        if ( ! $post || 'auto-draft' === $post->post_status ) {
+            return $override_slug;
         }
         // Detect Arabic characters in the title; skip if none found
         $title = $post->post_title;
         if ( ! preg_match( '/\p{Arabic}/u', $title ) ) {
-            return $slug;
+            return $override_slug;
         }
         // Check if method is disabled
         $method = $this->get_method();
         if ( 'none' === $method ) {
-            return $slug;
+            return $override_slug;
         }
         // Generate new slug via selected converter
         $converter = "convert_{$method}";
-        $generated = $this->$converter( $title );
-        return sanitize_title_with_dashes( $generated );
+        if ( is_callable( [ $this, $converter ] ) ) {
+            $new_slug = $this->$converter( $post->post_title );
+            return sanitize_title( $new_slug, $original_slug, 'save' );
+        }
+        return $override_slug;
     }
 
     /** Get current method */
     private function get_method() {
-        $opt = get_option( self::OPTION_KEY );
+        $opt = get_option( self::OPTION_KEY, [] );
         return $opt['method'] ?? 'transliteration';
     }    
 
-        /** Transliteration converter */
+    /** Transliteration converter */
     private function convert_transliteration( $text ) {
-        // TODO: implement Arabic to Latin transliteration
-        return $text;
+        // Remove diacritics
+        $text = preg_replace('/[\x{0610}-\x{061A}\x{064B}-\x{065F}\x{06D6}-\x{06ED}]/u', '', $text);
+        // Mapping table
+        $map = [
+            'ا'=>'a','أ'=>'a','إ'=>'i','آ'=>'a','ء'=>'','ؤ'=>'u','ئ'=>'i','ب'=>'b','ت'=>'t',
+            'ث'=>'th','ج'=>'j','ح'=>'h','خ'=>'kh','د'=>'d','ذ'=>'dh','ر'=>'r','ز'=>'z',
+            'س'=>'s','ش'=>'sh','ص'=>'s','ض'=>'d','ط'=>'t','ظ'=>'z','ع'=>'','غ'=>'gh',
+            'ف'=>'f','ق'=>'q','ك'=>'k','ل'=>'l','م'=>'m','ن'=>'n','ه'=>'h','و'=>'w',
+            'ي'=>'y','ى'=>'a','ة'=>'h','ﻻ'=>'la',' ':' ','-'=>'-'
+        ];
+        // Split into characters and transliterate
+        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        $out = '';
+        foreach ( $chars as $ch ) {
+            if ( isset( $map[$ch] ) ) {
+                $out .= $map[$ch];
+            } elseif ( preg_match('/[A-Za-z0-9]/', $ch) ) {
+                $out .= $ch;
+            } else {
+                $out .= ' ';
+            }
+        }
+        // Normalize spaces
+        $out = preg_replace('/\s+/', ' ', $out);
+        return trim( strtolower( $out ) );
     }
 
     /** 3arabizi converter */
     private function convert_arabizi( $text ) {
-        // TODO: implement 3arabizi logic
-        return $text;
+        // Remove diacritics
+        $text = preg_replace('/[\x{0610}-\x{061A}\x{064B}-\x{065F}\x{06D6}-\x{06ED}]/u', '', $text);
+        // 3arabizi mapping table
+        $map = [
+            'ا'=>'a','أ'=>'a','إ'=>'i','آ'=>'a','ء'=>'2','ؤ'=>'u','ئ'=>'i','ب'=>'b','ت'=>'t',
+            'ث'=>'4','ج'=>'j','ح'=>'7','خ'=>'5','د'=>'d','ذ'=>'dh','ر'=>'r','ز'=>'z',
+            'س'=>'s','ش'=>'sh','ص'=>'9','ض'=>'9','ط'=>'6','ظ'=>'z','ع'=>'3','غ'=>'gh',
+            'ف'=>'f','ق'=>'8','ك'=>'k','ل'=>'l','م'=>'m','ن'=>'n','ه'=>'h','و'=>'w',
+            'ي'=>'y','ى'=>'a','ة'=>'h','ﻻ'=>'la',' '=>' ','-'=>'-'
+        ];
+        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        $out = '';
+        foreach ( $chars as $ch ) {
+            if ( isset( $map[$ch] ) ) {
+                $out .= $map[$ch];
+            } elseif ( preg_match('/[A-Za-z0-9]/', $ch) ) {
+                $out .= $ch;
+            } else {
+                $out .= ' ';
+            }
+        }
+        $out = preg_replace('/\s+/', ' ', $out);
+        return trim( strtolower( $out ) );
     }
 
     /** Machine translation converter */
