@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites
 
  * Description: Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
- * Version: 1.0.0
+ * Version: 0.4.0
  * Author: Simula
  * Author URI: https://simulalab.org/
  * License: GPL2
@@ -13,56 +13,164 @@
  *
  */
 
-
- // Abort, if this file is called directly.
+// Abort, if this file is called directly.
 if ( ! defined( 'ABSPATH' ) ) {
-    exit; // Exit if accessed directly.
+    exit;
 }
 
 
-final class Simula_Friendly_Slugs {
-    /** Version */
-    const VERSION = '1.0.0';
-    /** Plugin slug */
-    const PLUGIN_SLUG = 'simula-friendly-slugs';
-    /** Option key */
-    const OPTION_KEY  = 'simula_friendly_slugs_settings';
+/**
+ * Apply filters to HTTP args for requests.
+ *
+ * @param array  $args        HTTP request arguments.
+ * @param string $provider    Provider key (e.g., 'google', 'yandex', 'custom').
+ * @param string $endpoint    Request URL endpoint.
+ * @param string $text        Text being translated.
+ * @return array Modified HTTP args.
+ */
+function simula_friendly_slugs_http_args( $args, $provider, $endpoint, $text ) {
+    return apply_filters( 'simula_friendly_slugs_http_args', $args, $provider, $endpoint, $text );
+}
 
-    /** Singleton instance */
-    private static $instance = null;
 
-    /** Get instance */
+// Provider interface
+interface Simula_Friendly_Slugs_Provider_Interface {
+    /**
+     * Translate a given text title to the target language.
+     * @param string $text
+     * @return string
+     */
+    public function translate( $text );
+}
+
+// Google provider
+class Simula_Friendly_Slugs_Provider_Google implements Simula_Friendly_Slugs_Provider_Interface {
+    private $api_key;
+    public function __construct( $key ) {
+        $this->api_key = $key;
+    }
+    public function translate( $text ) {
+        if ( empty( $this->api_key ) ) {
+            return $text;
+        }
+        $endpoint = 'https://translation.googleapis.com/language/translate/v2';
+        // $args     = [ 'timeout' => 5, 'body' => [ 'q' => $text, 'target' => get_bloginfo( 'language' ), 'format' => 'text', 'key' => $this->api_key ] ];
+        $args     = [
+            'timeout'   => 5,
+            'sslverify' => true,
+            'body'      => [
+                'q'      => $text,
+                'target' => get_bloginfo( 'language' ),
+                'format' => 'text',
+                'key'    => $this->api_key,
+            ],
+        ];
+        $args = simula_friendly_slugs_http_args( $args, 'google', $endpoint, $text );        
+        $response = wp_remote_post( $endpoint, $args );
+        if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+            return $text;
+        }
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+        return $data['data']['translations'][0]['translatedText'] ?? $text;
+    }
+}
+
+// // Yandex provider
+// class Simula_Friendly_Slugs_Provider_Yandex implements Simula_Friendly_Slugs_Provider_Interface {
+//     private $api_key;
+//     public function __construct( $key ) {
+//         $this->api_key = $key;
+//     }
+//     public function translate( $text ) {
+//         if ( empty( $this->api_key ) ) {
+//             return $text;
+//         }
+//         $endpoint = 'https://translate.yandex.net/api/v1.5/tr.json/translate';
+//         $args     = [
+//             'timeout'   => 5,
+//             'sslverify' => true,
+//             'body'      => [
+//                 'key'  => $this->api_key,
+//                 'text' => $text,
+//                 'lang' => 'ar-en',
+//             ],
+//         ];
+//         $args = simula_friendly_slugs_http_args( $args, 'yandex', $endpoint, $text );
+//         $response = wp_remote_post( $endpoint, $args );
+//         if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+//             return $text;
+//         }
+//         $data = json_decode( wp_remote_retrieve_body( $response ), true );
+//         return $data['text'][0] ?? $text;
+//     }
+// }
+
+// Custom provider
+class Simula_Friendly_Slugs_Provider_Custom implements Simula_Friendly_Slugs_Provider_Interface {
+    private $endpoint;
+    private $api_key;
+    public function __construct( $endpoint, $key ) {
+        $this->endpoint = esc_url_raw( $endpoint );
+        $this->api_key  = $key;
+    }
+    public function translate( $text ) {
+        if ( empty( $this->endpoint ) || empty( $this->api_key ) ) {
+            return $text;
+        }
+        $args     = [
+            'timeout'   => 5,
+            'sslverify' => true,
+            'headers'   => [
+                'Authorization' => 'Bearer ' . sanitize_text_field( $this->api_key ),
+                'Content-Type'  => 'application/json',
+            ],
+            'body'      => wp_json_encode( [ 'text' => $text ] ),            
+        ];
+        $args     = simula_friendly_slugs_http_args( $args, 'custom', $this->endpoint, $text );
+        $response = wp_remote_post( $this->endpoint, $args );
+        if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+            return $text;
+        }
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+        return apply_filters( 'simula_friendly_slugs_custom_parse_response', $text, $data );
+    }
+}
+
+class Simula_Friendly_Slugs {
+    const TEXT_DOMAIN = 'simula-friendly-slugs';
+    const OPTION_KEY  = 'simula_friendly_slugs_options';
+
+    private static $instance;
+    /** @var Simula_Friendly_Slugs_Provider_Interface[] */
+    private $providers = [];
+
+    /** Setup WordPress hooks */
+    private function __construct() {
+        // Load textdomain
+        add_action( 'init', [ $this, 'load_textdomain' ] );
+        
+        // Admin settings
+        add_action( 'admin_menu', [ $this, 'register_settings_page' ] );
+        add_action( 'admin_init', [ $this, 'register_settings' ] );
+
+        // Override slug on save
+        add_filter( 'wp_unique_post_slug', [ $this, 'generate_friendly_slug' ], 10, 6 );
+    }
+
     public static function instance() {
         if ( null === self::$instance ) {
             self::$instance = new self();
-            self::$instance->init_hooks();
         }
         return self::$instance;
     }
-
-
-    /** Setup WordPress hooks */
-    private function init_hooks() {
-        // Load textdomain
-        add_action( 'init', array( $this, 'load_textdomain' ) );
-
-        // Admin settings
-        add_action( 'admin_menu', array( $this, 'register_settings_page' ) );
-        add_action( 'admin_init', array( $this, 'register_settings' ) );
-
-        // Override slug on save
-        add_filter( 'wp_unique_post_slug', array( $this, 'filter_custom_slug' ), 10, 6 );
-    }
-
     /** Load plugin textdomain */
     public function load_textdomain() {
-        load_plugin_textdomain(
-            self::TEXT_DOMAIN,
-            false,
-            dirname( plugin_basename( __FILE__ ) ) . '/languages'
+        load_plugin_textdomain( 
+            self::TEXT_DOMAIN, 
+            false, 
+            dirname( plugin_basename( __FILE__ ) ) . '/languages/' 
         );
     }
-
 
     /** Add settings page under Settings menu */
     public function register_settings_page() {
@@ -71,40 +179,118 @@ final class Simula_Friendly_Slugs {
             __( 'Arabic Slugs', self::TEXT_DOMAIN ),
             'manage_options',
             self::TEXT_DOMAIN,
-            array( $this, 'render_settings_page' )
+            [ $this, 'render_settings_page' ]
         );
     }
-    
+
     /** Register settings and fields */
     public function register_settings() {
-        register_setting(
-            self::TEXT_DOMAIN,
-            self::OPTION_KEY,
-            array( $this, 'sanitize_settings' )
-        );
+        register_setting( 
+            self::TEXT_DOMAIN, 
+            self::OPTION_KEY, 
+            [ $this, 'sanitize_settings' ] );
 
+        // Main section
         add_settings_section(
             'simula_friendly_slugs_main',
             __( 'Default Slug Method', self::TEXT_DOMAIN ),
             '__return_false',
             self::TEXT_DOMAIN
         );
-
         add_settings_field(
             'method',
             __( 'Method', self::TEXT_DOMAIN ),
-            array( $this, 'field_method_html' ),
+            [ $this, 'field_method_html' ],
             self::TEXT_DOMAIN,
-            'simula_friendly_slugs_section'
+            'simula_friendly_slugs_main'
         );
-    }    
-    
+
+        // Translation section
+        add_settings_section(
+            'simula_friendly_slugs_translation',
+            __( 'Translation Settings', self::TEXT_DOMAIN ),
+            '__return_false',
+            self::TEXT_DOMAIN
+        );
+        add_settings_field(
+            'translation_service',
+            __( 'Translation Service', self::TEXT_DOMAIN ),
+            [ $this, 'field_translation_service_html' ],
+            self::TEXT_DOMAIN,
+            'simula_friendly_slugs_translation'
+        );
+
+        // Register provider definitions
+        $definitions = apply_filters( 'simula_friendly_slugs_translation_providers', [
+            'google' => [ 'label' => __( 'Google Translate', self::TEXT_DOMAIN ), 'class' => 'Simula_Friendly_Slugs_Provider_Google' ],
+            // 'yandex' => [ 'label' => __( 'Yandex Translate',  self::TEXT_DOMAIN ), 'class' => 'Simula_Friendly_Slugs_Provider_Yandex' ],
+            'custom' => [ 'label' => __( 'Custom API',      self::TEXT_DOMAIN ), 'class' => 'Simula_Friendly_Slugs_Provider_Custom' ],
+        ] );
+
+        // Instantiate providers and add API fields
+        foreach ( $definitions as $key => $def ) {
+            $options = get_option( self::OPTION_KEY, [] );
+            $api_key = $options['api_keys'][ $key ] ?? '';
+            if ( class_exists( $def['class'] ) ) {
+                if ( 'custom' === $key ) {
+                    $endpoint = $options['custom_api_endpoint'] ?? '';
+                    $this->providers[ $key ] = new $def['class']( $endpoint, $api_key );
+                } else {
+                    $this->providers[ $key ] = new $def['class']( $api_key );
+                }
+            }
+            // API key field
+            add_settings_field(
+                "{$key}_api_key",
+                sprintf( /* translators: %s is provider name */ __( '%s API Key', self::TEXT_DOMAIN ), $def['label'] ),
+                [ $this, 'field_api_key_html' ],
+                self::TEXT_DOMAIN,
+                'simula_friendly_slugs_translation',
+                [ 'service' => $key ]
+            );
+            if ( 'custom' === $key ) {
+                // Custom endpoint field
+                add_settings_field(
+                    'custom_api_endpoint',
+                    __( 'Custom API Endpoint', self::TEXT_DOMAIN ),
+                    [ $this, 'field_custom_endpoint_html' ],
+                    self::TEXT_DOMAIN,
+                    'simula_friendly_slugs_translation'
+                );
+            }
+        }
+    }
+
     /** Sanitize settings */
     public function sanitize_settings( $input ) {
-        $valid = array();
-        $methods = array( 'transliteration', 'arabizi', 'translation', 'none' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return [];
+        }
+        $valid   = [];
+        $methods = [ 'wp_transliteration', 'custom_transliteration', 'arabizi', 'translation', 'none' ];
         if ( isset( $input['method'] ) && in_array( $input['method'], $methods, true ) ) {
             $valid['method'] = $input['method'];
+        }
+        if ( 'translation' === ( $valid['method'] ?? '' ) ) {
+            // service
+            $definitions = apply_filters( 'simula_friendly_slugs_translation_providers', [] );
+            $services    = array_keys( $definitions );
+            if ( isset( $input['translation_service'] ) && in_array( $input['translation_service'], $services, true ) ) {
+                $valid['translation_service'] = $input['translation_service'];
+            }
+            // api keys
+            $valid['api_keys'] = [];
+            if ( ! empty( $input['api_keys'] ) && is_array( $input['api_keys'] ) ) {
+                foreach ( $services as $s ) {
+                    if ( isset( $input['api_keys'][ $s ] ) ) {
+                        $valid['api_keys'][ $s ] = sanitize_text_field( $input['api_keys'][ $s ] );
+                    }
+                }
+            }
+            // custom endpoint
+            if ( ! empty( $input['custom_api_endpoint'] ) ) {
+                $valid['custom_api_endpoint'] = esc_url_raw( $input['custom_api_endpoint'] );
+            }
         }
         return $valid;
     }
@@ -113,22 +299,60 @@ final class Simula_Friendly_Slugs {
     /** Settings field HTML */
     public function field_method_html() {
         $options = get_option( self::OPTION_KEY, [] );
-        $current = isset( $options['method'] ) ? $options['method'] : 'transliteration';
+        $current = $options['method'] ?? 'wp_transliteration';
         ?>
-        <select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[method]">
-            <option value="transliteration" <?php selected( $current, 'transliteration' ); ?>><?php esc_html_e( 'Transliteration', 'simula-friendly-slugs' ); ?></option>
-            <option value="arabizi" <?php selected( $current, 'arabizi' ); ?>><?php esc_html_e( '3arabizi', 'simula-friendly-slugs' ); ?></option>
-            <option value="translation" <?php selected( $current, 'translation' ); ?>><?php esc_html_e( 'Machine Translation', 'simula-friendly-slugs' ); ?></option>
-            <option value="none" <?php selected( $current, 'none' ); ?>><?php esc_html_e( 'No Change', 'simula-friendly-slugs' ); ?></option>
+        <select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[method]" onchange="this.form.submit()">
+            <option value="wp_transliteration" <?php selected( $current, 'wp_transliteration' ); ?>><?php esc_html_e( 'Transliteration', self::TEXT_DOMAIN ); ?></option>
+            <option value="arabizi" <?php selected( $current, 'arabizi' ); ?>><?php esc_html_e( '3arabizi', self::TEXT_DOMAIN ); ?></option>
+            <option value="translation" <?php selected( $current, 'translation' ); ?>><?php esc_html_e( 'Machine Translation', self::TEXT_DOMAIN ); ?></option>
+            <option value="none" <?php selected( $current, 'none' ); ?>><?php esc_html_e( 'No Change', self::TEXT_DOMAIN ); ?></option>
         </select>
         <?php
     }
 
+    public function field_translation_service_html() {
+        $options = get_option( self::OPTION_KEY, [] );
+        if ( $options['method'] ?? '' !== 'translation' ) {
+            return;
+        }
+        $current = $options['translation_service'] ?? '';
+        ?>
+        <select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[translation_service]" onchange="this.form.submit()">
+            <?php foreach ( $this->providers as $key => $provider ) : ?>
+                <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $current, $key ); ?>><?php echo esc_html( apply_filters( "simula_friendly_slugs_provider_label_{$key}", ucfirst( $key ) ) ); ?></option>
+            <?php endforeach; ?>
+        </select>
+        <?php
+    }
+
+    public function field_api_key_html( $args ) {
+        $service = $args['service'];
+        $options = get_option( self::OPTION_KEY, [] );
+        if ( $options['method'] ?? '' !== 'translation' || $options['translation_service'] ?? '' !== $service ) {
+            return;
+        }
+        $value = $options['api_keys'][ $service ] ?? '';
+        ?>
+        <input type="text" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[api_keys][<?php echo esc_attr( $service ); ?>]" value="<?php echo esc_attr( $value ); ?>" class="regular-text" />
+        <?php
+    }
+
+    public function field_custom_endpoint_html() {
+        $options  = get_option( self::OPTION_KEY, [] );
+        if ( $options['method'] ?? '' !== 'translation' || $options['translation_service'] ?? '' !== 'custom' ) {
+            return;
+        }
+        $endpoint = $options['custom_api_endpoint'] ?? '';
+        ?>
+        <input type="url" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[custom_api_endpoint]" value="<?php echo esc_attr( $endpoint ); ?>" class="regular-text" />
+        <?php
+    }
+    
     /** Render settings page */
     public function render_settings_page() {
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e( 'Simula Friendly Arabic Slugs Settings',  self::TEXT_DOMAIN ); ?></h1>
+            <h1><?php esc_html_e( 'Simula Friendly Arabic Slugs Settings', self::TEXT_DOMAIN ); ?></h1>
             <form action="options.php" method="post">
                 <?php
                 settings_fields( self::TEXT_DOMAIN );
@@ -140,24 +364,12 @@ final class Simula_Friendly_Slugs {
         <?php
     }
 
-    /** Filter slug on save */
-    public function filter_custom_slug( $override_slug, $post_ID, $post_status, $post_type, $post_parent, $original_slug ) {
-        // Get the post object
-        $post = get_post( $post_ID );
-        if ( ! $post || 'auto-draft' === $post->post_status ) {
+    public function generate_friendly_slug( $override_slug, $post_ID, $post_status, $post_type, $post_parent, $original_slug ) {
+        $method = ( get_option( self::OPTION_KEY, [] )['method'] ?? 'none' );
+        $post   = get_post( $post_ID );
+        if ( ! $post instanceof WP_Post ) {
             return $override_slug;
         }
-        // Detect Arabic characters in the title; skip if none found
-        $title = $post->post_title;
-        if ( ! preg_match( '/\p{Arabic}/u', $title ) ) {
-            return $override_slug;
-        }
-        // Check if method is disabled
-        $method = $this->get_method();
-        if ( 'none' === $method ) {
-            return $override_slug;
-        }
-        // Generate new slug via selected converter
         $converter = "convert_{$method}";
         if ( is_callable( [ $this, $converter ] ) ) {
             $new_slug = $this->$converter( $post->post_title );
@@ -166,14 +378,34 @@ final class Simula_Friendly_Slugs {
         return $override_slug;
     }
 
-    /** Get current method */
-    private function get_method() {
-        $opt = get_option( self::OPTION_KEY, [] );
-        return $opt['method'] ?? 'transliteration';
-    }    
+    private function convert_translation( $text ) {
+        $options = get_option( self::OPTION_KEY, [] );
+        $service = $options['translation_service'] ?? '';
+        if ( ! isset( $this->providers[ $service ] ) ) {
+            return $text;
+        }
+        return $this->providers[ $service ]->translate( $text );
+    }
+
+    /**
+     * Transliteration converter (using WP/ICU)
+     */
+    private function convert_wp_transliteration( $text ) {
+        // 1) First, let PHP/ICU do the heavy lifting (Any‐Latin → ASCII-Latin)
+        if ( function_exists( 'transliterator_transliterate' ) ) {
+            // “Any-Latin; Latin-ASCII” pulls in every script → Latin, then strips diacritics.
+            $text = transliterator_transliterate( 'Any-Latin; Latin-ASCII;', $text );
+        }
+
+        // 2) Fallback for accents (remove_accents covers Latin, Greek, Cyrillic, etc.)
+        $text = remove_accents( $text );
+
+        // 3) Normalize to lowercase and return
+        return strtolower( $text );
+    }
 
     /** Transliteration converter */
-    private function convert_transliteration( $text ) {
+    private function convert_custom_transliteration( $text ) {
         // Remove diacritics
         $text = preg_replace('/[\x{0610}-\x{061A}\x{064B}-\x{065F}\x{06D6}-\x{06ED}]/u', '', $text);
         // Mapping table
@@ -227,14 +459,7 @@ final class Simula_Friendly_Slugs {
         $out = preg_replace('/\s+/', ' ', $out);
         return trim( strtolower( $out ) );
     }
-
-    /** Machine translation converter */
-    private function convert_translation( $text ) {
-        // TODO: integrate with Google Translate API
-        return $text;
-    }
 }
-
 
 // Initialize plugin
 Simula_Friendly_Slugs::instance();
