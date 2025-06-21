@@ -185,12 +185,14 @@ class Simula_Friendly_Slugs {
 
     /** Register settings and fields */
     public function register_settings() {
-        register_setting( 
-            self::TEXT_DOMAIN, 
-            self::OPTION_KEY, 
-            [ $this, 'sanitize_settings' ] );
-
-        // Main section
+        // 1) Register the main option
+        register_setting(
+            self::TEXT_DOMAIN,
+            self::OPTION_KEY,
+            [ $this, 'sanitize_settings' ]
+        );
+    
+        // 2) “Default Slug Method” section + dropdown
         add_settings_section(
             'simula_friendly_slugs_main',
             __( 'Default Slug Method', self::TEXT_DOMAIN ),
@@ -204,62 +206,75 @@ class Simula_Friendly_Slugs {
             self::TEXT_DOMAIN,
             'simula_friendly_slugs_main'
         );
-
-        // Translation section
-        add_settings_section(
-            'simula_friendly_slugs_translation',
-            __( 'Translation Settings', self::TEXT_DOMAIN ),
-            '__return_false',
-            self::TEXT_DOMAIN
-        );
-        add_settings_field(
-            'translation_service',
-            __( 'Translation Service', self::TEXT_DOMAIN ),
-            [ $this, 'field_translation_service_html' ],
-            self::TEXT_DOMAIN,
-            'simula_friendly_slugs_translation'
-        );
-
-        // Register provider definitions
-        $definitions = apply_filters( 'simula_friendly_slugs_translation_providers', [
-            'google' => [ 'label' => __( 'Google Translate', self::TEXT_DOMAIN ), 'class' => 'Simula_Friendly_Slugs_Provider_Google' ],
-            // 'yandex' => [ 'label' => __( 'Yandex Translate',  self::TEXT_DOMAIN ), 'class' => 'Simula_Friendly_Slugs_Provider_Yandex' ],
-            'custom' => [ 'label' => __( 'Custom API',      self::TEXT_DOMAIN ), 'class' => 'Simula_Friendly_Slugs_Provider_Custom' ],
-        ] );
-
-        // Instantiate providers and add API fields
-        foreach ( $definitions as $key => $def ) {
-            $options = get_option( self::OPTION_KEY, [] );
-            $api_key = $options['api_keys'][ $key ] ?? '';
-            if ( class_exists( $def['class'] ) ) {
-                if ( 'custom' === $key ) {
-                    $endpoint = $options['custom_api_endpoint'] ?? '';
-                    $this->providers[ $key ] = new $def['class']( $endpoint, $api_key );
-                } else {
-                    $this->providers[ $key ] = new $def['class']( $api_key );
-                }
-            }
-            // API key field
-            add_settings_field(
-                "{$key}_api_key",
-                sprintf( /* translators: %s is provider name */ __( '%s API Key', self::TEXT_DOMAIN ), $def['label'] ),
-                [ $this, 'field_api_key_html' ],
-                self::TEXT_DOMAIN,
+    
+        // 3) Only if the current saved method is “translation”…
+        $options = get_option( self::OPTION_KEY, [] );
+        $method  = $options['method'] ?? '';
+    
+        if ( 'translation' === $method ) {
+    
+            // 3a) Translation Settings section + service selector
+            add_settings_section(
                 'simula_friendly_slugs_translation',
-                [ 'service' => $key ]
+                __( 'Translation Settings', self::TEXT_DOMAIN ),
+                '__return_false',
+                self::TEXT_DOMAIN
             );
-            if ( 'custom' === $key ) {
-                // Custom endpoint field
+            add_settings_field(
+                'translation_service',
+                __( 'Translation Service', self::TEXT_DOMAIN ),
+                [ $this, 'field_translation_service_html' ],
+                self::TEXT_DOMAIN,
+                'simula_friendly_slugs_translation'
+            );
+    
+            // 3b) Provider definitions & per‐provider API key / endpoint fields
+            $definitions = apply_filters( 'simula_friendly_slugs_translation_providers', [
+                'google' => [
+                    'label' => __( 'Google Translate', self::TEXT_DOMAIN ),
+                    'class' => 'Simula_Friendly_Slugs_Provider_Google',
+                ],
+                'custom' => [
+                    'label' => __( 'Custom API', self::TEXT_DOMAIN ),
+                    'class' => 'Simula_Friendly_Slugs_Provider_Custom',
+                ],
+            ] );
+    
+            foreach ( $definitions as $key => $def ) {
+                // instantiate provider
+                $opts   = get_option( self::OPTION_KEY, [] );
+                $api    = $opts['api_keys'][ $key ] ?? '';
+                if ( 'custom' === $key ) {
+                    $endpoint = $opts['custom_api_endpoint'] ?? '';
+                    $this->providers[ $key ] = new $def['class']( $endpoint, $api );
+                } else {
+                    $this->providers[ $key ] = new $def['class']( $api );
+                }
+    
+                // API key field
                 add_settings_field(
-                    'custom_api_endpoint',
-                    __( 'Custom API Endpoint', self::TEXT_DOMAIN ),
-                    [ $this, 'field_custom_endpoint_html' ],
+                    "{$key}_api_key",
+                    sprintf( __( '%s API Key', self::TEXT_DOMAIN ), $def['label'] ),
+                    [ $this, 'field_api_key_html' ],
                     self::TEXT_DOMAIN,
-                    'simula_friendly_slugs_translation'
+                    'simula_friendly_slugs_translation',
+                    [ 'service' => $key ]
                 );
+    
+                // Custom‐endpoint only for “custom”
+                if ( 'custom' === $key ) {
+                    add_settings_field(
+                        'custom_api_endpoint',
+                        __( 'Custom API Endpoint', self::TEXT_DOMAIN ),
+                        [ $this, 'field_custom_endpoint_html' ],
+                        self::TEXT_DOMAIN,
+                        'simula_friendly_slugs_translation'
+                    );
+                }
             }
         }
     }
+    
 
     /** Sanitize settings */
     public function sanitize_settings( $input ) {
@@ -304,7 +319,7 @@ class Simula_Friendly_Slugs {
         <select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[method]" onchange="this.form.submit()">
             <option value="wp_transliteration" <?php selected( $current, 'wp_transliteration' ); ?>><?php esc_html_e( 'Transliteration', self::TEXT_DOMAIN ); ?></option>
             <option value="arabizi" <?php selected( $current, 'arabizi' ); ?>><?php esc_html_e( '3arabizi', self::TEXT_DOMAIN ); ?></option>
-            <option value="translation" <?php selected( $current, 'translation' ); ?>><?php esc_html_e( 'Machine Translation', self::TEXT_DOMAIN ); ?></option>
+            <option value="translation" <?php selected( $current, 'translation' ); ?>><?php esc_html_e( 'Translation', self::TEXT_DOMAIN ); ?></option>
             <option value="none" <?php selected( $current, 'none' ); ?>><?php esc_html_e( 'No Change', self::TEXT_DOMAIN ); ?></option>
         </select>
         <?php
@@ -312,7 +327,7 @@ class Simula_Friendly_Slugs {
 
     public function field_translation_service_html() {
         $options = get_option( self::OPTION_KEY, [] );
-        if ( $options['method'] ?? '' !== 'translation' ) {
+        if ( ( $options['method'] ?? '' ) !== 'translation' ) {
             return;
         }
         $current = $options['translation_service'] ?? '';
@@ -328,7 +343,7 @@ class Simula_Friendly_Slugs {
     public function field_api_key_html( $args ) {
         $service = $args['service'];
         $options = get_option( self::OPTION_KEY, [] );
-        if ( $options['method'] ?? '' !== 'translation' || $options['translation_service'] ?? '' !== $service ) {
+        if ( ( $options['method'] ?? '' ) !== 'translation' || ( $options['translation_service'] ?? '' ) !== $service ) {
             return;
         }
         $value = $options['api_keys'][ $service ] ?? '';
@@ -339,7 +354,7 @@ class Simula_Friendly_Slugs {
 
     public function field_custom_endpoint_html() {
         $options  = get_option( self::OPTION_KEY, [] );
-        if ( $options['method'] ?? '' !== 'translation' || $options['translation_service'] ?? '' !== 'custom' ) {
+        if ( ( $options['method'] ?? '' ) !== 'translation' || ( $options['translation_service'] ?? '' ) !== 'custom' ) {
             return;
         }
         $endpoint = $options['custom_api_endpoint'] ?? '';
@@ -414,7 +429,7 @@ class Simula_Friendly_Slugs {
             'ث'=>'th','ج'=>'j','ح'=>'h','خ'=>'kh','د'=>'d','ذ'=>'dh','ر'=>'r','ز'=>'z',
             'س'=>'s','ش'=>'sh','ص'=>'s','ض'=>'d','ط'=>'t','ظ'=>'z','ع'=>'','غ'=>'gh',
             'ف'=>'f','ق'=>'q','ك'=>'k','ل'=>'l','م'=>'m','ن'=>'n','ه'=>'h','و'=>'w',
-            'ي'=>'y','ى'=>'a','ة'=>'h','ﻻ'=>'la',' ':' ','-'=>'-'
+            'ي'=>'y','ى'=>'a','ة'=>'h','ﻻ'=>'la','_'=>'_','-'=>'-'
         ];
         // Split into characters and transliterate
         $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
