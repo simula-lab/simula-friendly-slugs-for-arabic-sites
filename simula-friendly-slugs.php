@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites
 
  * Description: Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
- * Version: 0.6.3
+ * Version: 0.6.4
  * Author: Simula
  * Author URI: https://simulalab.org/
  * License: GPL2
@@ -99,7 +99,7 @@ class Simula_Friendly_Slugs_Provider_Google implements Simula_Friendly_Slugs_Pro
         if ( 200 !== $code ) {
             $message = wp_remote_retrieve_response_message( $response ) ?: 'Unknown error';
             return new WP_Error( 'http_error',
-                sprintf( 'Google API HTTP %d: %s', $code, $message )
+                sprintf( 'Google Translate API HTTP %d: %s', $code, $message )
             );
         }
 
@@ -389,22 +389,26 @@ class Simula_Friendly_Slugs {
         );
     }
 
-    /** Register settings and fields */
+    /**
+    * Register settings and fields. Always show all options at once.
+    */
     public function register_settings() {
-        // 1) Register the main option
+        // Register the main option container
         register_setting(
             self::TEXT_DOMAIN,
             self::OPTION_KEY,
             [ $this, 'sanitize_settings' ]
         );
     
-        // 2) “Default Slug Method” section + dropdown
+        // Main section for method
         add_settings_section(
             'simula_friendly_slugs_main',
-            __( 'Default Slug Method', self::TEXT_DOMAIN ),
-            '__return_false',
+            __( 'Slug Generation Method', self::TEXT_DOMAIN ),
+            [ $this, 'section_main_html' ],
             self::TEXT_DOMAIN
         );
+    
+        // Field: method radio list
         add_settings_field(
             'method',
             __( 'Method', self::TEXT_DOMAIN ),
@@ -413,21 +417,15 @@ class Simula_Friendly_Slugs {
             'simula_friendly_slugs_main'
         );
     
-        // Bail early unless “Translation” is the chosen method.
-        $opts   = get_option( self::OPTION_KEY, [] );
-        $method = $opts['method'] ?? '';
-
-        if ( 'translation' !== $method ) {
-            return;
-        }
-
-        // 1) Translation section + the “Translation Service” dropdown
+        // Translation settings section
         add_settings_section(
             'simula_friendly_slugs_translation',
             __( 'Translation Settings', self::TEXT_DOMAIN ),
-            '__return_false',
+            [ $this, 'section_translation_html' ],
             self::TEXT_DOMAIN
         );
+    
+        // Field: Translation service dropdown
         add_settings_field(
             'translation_service',
             __( 'Translation Service', self::TEXT_DOMAIN ),
@@ -435,181 +433,172 @@ class Simula_Friendly_Slugs {
             self::TEXT_DOMAIN,
             'simula_friendly_slugs_translation'
         );
-
-        // 2) Gather all the provider definitions…
-        $definitions = self::get_translation_providers_definitions();
-
-        // 3) Instantiate each provider (so the dropdown callback sees them)
-        foreach ( $definitions as $key => $def ) {
-            $api_key = $opts['api_keys'][ $key ] ?? '';
-            if ( 'custom' === $key ) {
-                $endpoint = $opts['custom_api_endpoint'] ?? '';
-                $this->providers[ $key ] = new $def['class']( $endpoint, $api_key );
-            } else {
-                $this->providers[ $key ] = new $def['class']( $api_key );
-            }
-        }
-
-        // 4) Figure out which service the user actually picked
-        $selected = $opts['translation_service'] ?? '';
-        if ( ! array_key_exists( $selected, $definitions ) ) {
-            // fallback to the first available
-            $selected = key( $definitions );
-        }
-
-        // 5) **Only** register the API‐Key field for that one service:
+    
+        // Field: API key input for Google
         add_settings_field(
-            "{$selected}_api_key",
-            sprintf( __( '%s API Key', self::TEXT_DOMAIN ), $definitions[ $selected ]['label'] ),
+            'google_api_key',
+            __( 'Google API Key', self::TEXT_DOMAIN ),
             [ $this, 'field_api_key_html' ],
             self::TEXT_DOMAIN,
-            'simula_friendly_slugs_translation',
-            [ 'service' => $selected ]
+            'simula_friendly_slugs_translation'
         );
+    }
 
-        // 6) If “custom” is the selected service, also add the endpoint field
-        if ( 'custom' === $selected ) {
-            add_settings_field(
-                'custom_api_endpoint',
-                __( 'Custom API Endpoint', self::TEXT_DOMAIN ),
-                [ $this, 'field_custom_endpoint_html' ],
-                self::TEXT_DOMAIN,
-                'simula_friendly_slugs_translation'
+    /**
+     * Description for the main section
+     */
+    public function section_main_html() {
+        echo '<p>' . esc_html__( 'Choose how slugs are generated for Arabic titles.', self::TEXT_DOMAIN ) . '</p>';
+    }
+
+    /**
+     * Description for the translation section
+     */
+    public function section_translation_html() {
+        echo '<p>' . esc_html__( 'Configure translation provider and credentials.', self::TEXT_DOMAIN ) . '</p>';
+    }
+
+    /**
+     * Render radio list for method with inline descriptions
+     */
+    public function field_method_html() {
+        $options = get_option( self::OPTION_KEY, [] );
+        $current = $options['method'] ?? 'none';
+        $methods = [
+            'none'               => [ 'label' => __( 'No Change', self::TEXT_DOMAIN ), 'desc' => __( 'Leave the slug unchanged.', self::TEXT_DOMAIN ) ],
+            'wp_transliteration' => [ 'label' => __( 'Transliteration', self::TEXT_DOMAIN ), 'desc' => __( 'Use PHP/ICU to transliterate Arabic characters.', self::TEXT_DOMAIN ) ],
+            'arabizi'           => [ 'label' => __( '3arabizi', self::TEXT_DOMAIN ), 'desc' => __( 'Convert Arabic to 3arabizi numerals.', self::TEXT_DOMAIN ) ],
+            'translation'       => [ 'label' => __( 'Translation', self::TEXT_DOMAIN ), 'desc' => __( 'Translate the title to English via the selected service.', self::TEXT_DOMAIN ) ],
+        ];
+        foreach ( $methods as $key => $data ) {
+            printf(
+                '<label style="display:block; margin-bottom:8px;"><input type="radio" name="%s[method]" value="%s"%s> <strong>%s</strong> <span class="description" style="margin-left:8px;">%s</span></label>',
+                esc_attr( self::OPTION_KEY ),
+                esc_attr( $key ),
+                checked( $current, $key, false ),
+                esc_html( $data['label'] ),
+                esc_html( $data['desc'] )
             );
         }
     }
-    
 
-/**
- * Sanitize and validate all plugin settings.
- *
- * @param array $input Raw input from the options form.
- * @return array Sanitized settings array (never WP_Error).
- */
-public function sanitize_settings( $input ) {
-    // Grab the previous, to fall back on on error.
-    $previous = get_option( self::OPTION_KEY, [] );
-    if ( is_wp_error( $previous ) || ! is_array( $previous ) ) {
-        $previous = [];
+    public function field_translation_service_html() {
+        $options   = get_option( self::OPTION_KEY, [] );
+        $current   = $options['translation_service'] ?? 'google';
+        $providers = [
+            'google' => [ 'label' => __( 'Google Translate', self::TEXT_DOMAIN ), 'desc' => __( 'Use Google Translate API.', self::TEXT_DOMAIN ) ],
+            // Add other providers here with 'key' => [ label, desc ]
+        ];
+        foreach ( $providers as $key => $data ) {
+            printf(
+                '<label style="display:block; margin-bottom:8px;"><input type="radio" name="%s[translation_service]" value="%s"%s> <strong>%s</strong> <span class="description" style="margin-left:8px;">%s</span></label>',
+                esc_attr( self::OPTION_KEY ),
+                esc_attr( $key ),
+                checked( $current, $key, false ),
+                esc_html( $data['label'] ),
+                esc_html( $data['desc'] )
+            );
+        }
     }
 
-    if ( ! current_user_can( 'manage_options' ) ) {
-        add_settings_error(
-            self::OPTION_KEY,
-            'permission_denied',
-            __( 'You do not have permission to edit these settings.', self::TEXT_DOMAIN ),
-            'error'
+    /**
+     * Render API key input
+     */
+    public function field_api_key_html() {
+        $options = get_option( self::OPTION_KEY, [] );
+        $value   = $options['api_keys']['google'] ?? '';
+        printf(
+            '<input type="text" name="%s[api_keys][google]" value="%s" class="regular-text">',
+            esc_attr( self::OPTION_KEY ),
+            esc_attr( $value )
         );
-        return $previous;
     }
 
-    $valid   = [];
-    $methods = [ 'wp_transliteration', 'custom_transliteration', 'arabizi', 'translation', 'none' ];
+    /**
+     * Sanitize and validate all plugin settings.
+     *
+     * @param array $input Raw input from the options form.
+     * @return array Sanitized settings array (never WP_Error).
+     */
+    public function sanitize_settings( $input ) {
+        // Grab the previous, to fall back on on error.
+        $previous = get_option( self::OPTION_KEY, [] );
+        if ( is_wp_error( $previous ) || ! is_array( $previous ) ) {
+            $previous = [];
+        }
 
-    // 1) Method
-    if ( isset( $input['method'] ) && in_array( $input['method'], $methods, true ) ) {
-        $valid['method'] = $input['method'];
-    } else {
-        $valid['method'] = $previous['method'] ?? 'none';
-    }
-
-    // 2) If translation
-    if ( 'translation' === $valid['method'] ) {
-        // Validate service
-        $definitions = self::get_translation_providers_definitions();
-        $services    = array_keys( $definitions );
-        $service     = $input['translation_service'] ?? '';
-        if ( ! in_array( $service, $services, true ) ) {
+        if ( ! current_user_can( 'manage_options' ) ) {
             add_settings_error(
                 self::OPTION_KEY,
-                'invalid_service',
-                __( 'Please choose a valid Translation Service.', self::TEXT_DOMAIN ),
+                'permission_denied',
+                __( 'You do not have permission to edit these settings.', self::TEXT_DOMAIN ),
                 'error'
             );
             return $previous;
         }
-        $valid['translation_service'] = $service;
 
-        // Validate provider credentials
-        $valid['api_keys'] = [];
-        foreach ( $services as $s ) {
-            $raw_key      = $input['api_keys'][ $s ] ?? '';
-            $raw_endpoint = $input['custom_api_endpoint'] ?? '';
+        $valid   = [];
+        $methods = [ 'wp_transliteration', 'custom_transliteration', 'arabizi', 'translation', 'none' ];
 
-            if ( isset( $this->providers[ $s ] ) && method_exists( $this->providers[ $s ], 'validate_settings' ) ) {
-                $result = $this->providers[ $s ]->validate_settings([
-                    'key'      => $raw_key,
-                    'endpoint' => $raw_endpoint,
-                ]);
-                if ( is_wp_error( $result ) ) {
-                    add_settings_error(
-                        self::OPTION_KEY,
-                        "{$s}_invalid",
-                        $result->get_error_message(),
-                        'error'
-                    );
-                    return $previous;
-                }
-                // on success, result is either string or array
-                if ( is_array( $result ) ) {
-                    $valid['api_keys'][ $s ]             = sanitize_text_field( $result['key'] ?? '' );
-                    $valid['custom_api_endpoint'] = esc_url_raw( $result['endpoint'] ?? '' );
+        // 1) Method
+        if ( isset( $input['method'] ) && in_array( $input['method'], $methods, true ) ) {
+            $valid['method'] = $input['method'];
+        } else {
+            $valid['method'] = $previous['method'] ?? 'none';
+        }
+
+        // 2) If translation
+        if ( 'translation' === $valid['method'] ) {
+            // Validate service
+            $definitions = self::get_translation_providers_definitions();
+            $services    = array_keys( $definitions );
+            $service     = $input['translation_service'] ?? '';
+            if ( ! in_array( $service, $services, true ) ) {
+                add_settings_error(
+                    self::OPTION_KEY,
+                    'invalid_service',
+                    __( 'Please choose a valid Translation Service.', self::TEXT_DOMAIN ),
+                    'error'
+                );
+                return $previous;
+            }
+            $valid['translation_service'] = $service;
+
+            // Validate provider credentials
+            $valid['api_keys'] = [];
+            foreach ( $services as $s ) {
+                $raw_key      = $input['api_keys'][ $s ] ?? '';
+                $raw_endpoint = $input['custom_api_endpoint'] ?? '';
+
+                if ( isset( $this->providers[ $s ] ) && method_exists( $this->providers[ $s ], 'validate_settings' ) ) {
+                    $result = $this->providers[ $s ]->validate_settings([
+                        'key'      => $raw_key,
+                        'endpoint' => $raw_endpoint,
+                    ]);
+                    if ( is_wp_error( $result ) ) {
+                        add_settings_error(
+                            self::OPTION_KEY,
+                            "{$s}_invalid",
+                            $result->get_error_message(),
+                            'error'
+                        );
+                        return $previous;
+                    }
+                    // on success, result is either string or array
+                    if ( is_array( $result ) ) {
+                        $valid['api_keys'][ $s ]             = sanitize_text_field( $result['key'] ?? '' );
+                        $valid['custom_api_endpoint'] = esc_url_raw( $result['endpoint'] ?? '' );
+                    } else {
+                        $valid['api_keys'][ $s ] = sanitize_text_field( $result );
+                    }
                 } else {
-                    $valid['api_keys'][ $s ] = sanitize_text_field( $result );
+                    // fallback: just sanitize text
+                    $valid['api_keys'][ $s ] = sanitize_text_field( $raw_key );
                 }
-            } else {
-                // fallback: just sanitize text
-                $valid['api_keys'][ $s ] = sanitize_text_field( $raw_key );
             }
         }
-    }
 
-    return $valid;
-}
-
-
-    /** Settings field HTML */
-    public function field_method_html() {
-        $options = get_option( self::OPTION_KEY, [] );
-        $current = $options['method'] ?? 'none';
-        ?>
-        <select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[method]" onchange="this.form.submit()">
-            <option value="none" <?php selected( $current, 'none' ); ?>><?php esc_html_e( 'No Change', self::TEXT_DOMAIN ); ?></option>
-            <option value="wp_transliteration" <?php selected( $current, 'wp_transliteration' ); ?>><?php esc_html_e( 'Transliteration', self::TEXT_DOMAIN ); ?></option>
-            <option value="arabizi" <?php selected( $current, 'arabizi' ); ?>><?php esc_html_e( '3arabizi', self::TEXT_DOMAIN ); ?></option>
-            <option value="translation" <?php selected( $current, 'translation' ); ?>><?php esc_html_e( 'Translation', self::TEXT_DOMAIN ); ?></option>
-        </select>
-        <?php
-    }
-
-    public function field_translation_service_html() {
-        $options = get_option( self::OPTION_KEY, [] );
-        if ( ( $options['method'] ?? '' ) !== 'translation' ) {
-            return;
-        }
-        $current = $options['translation_service'] ?? '';
-        ?>
-        <select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[translation_service]" onchange="this.form.submit()">
-            <?php foreach ( $this->providers as $key => $provider ) : ?>
-                <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $current, $key ); ?>><?php echo esc_html( apply_filters( "simula_friendly_slugs_provider_label_{$key}", ucfirst( $key ) ) ); ?></option>
-            <?php endforeach; ?>
-        </select>
-        <?php
-    }
-
-    public function field_api_key_html( $args ) {
-        $service = $args['service'];
-        $options = get_option( self::OPTION_KEY, [] );
-        if ( ( $options['method'] ?? '' ) !== 'translation' 
-        // || ( $options['translation_service'] ?? '' ) !== $service 
-        ) 
-        {
-            return;
-        }
-        $value = $options['api_keys'][ $service ] ?? '';
-        ?>
-        <input type="text" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[api_keys][<?php echo esc_attr( $service ); ?>]" value="<?php echo esc_attr( $value ); ?>" class="regular-text" />
-        <?php
+        return $valid;
     }
 
     public function field_custom_endpoint_html() {
@@ -641,6 +630,9 @@ public function sanitize_settings( $input ) {
 
     public function generate_friendly_slug( $override_slug, $post_ID, $post_status, $post_type, $post_parent, $original_slug ) {
         $method = ( get_option( self::OPTION_KEY, [] )['method'] ?? 'none' );
+        if ( $method === 'none' ) {
+            return $override_slug;
+        }
         $post   = get_post( $post_ID );
         if ( ! $post instanceof WP_Post ) {
             return $override_slug;
