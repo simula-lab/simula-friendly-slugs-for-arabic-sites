@@ -1,0 +1,153 @@
+# Copyright (C) 2025 Simula
+# This file is distributed under the GPL2.
+msgid ""
+msgstr ""
+"Project-Id-Version: Simula Friendly Slugs for Arabic Sites 0.9.6\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/simula-friendly-slugs-for-arabic-sites\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2025-06-24T21:04:53+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+§
+#. Plugin Name of the plugin
+#: simula-friendly-slugs.php
+msgid "Simula Friendly Slugs for Arabic Sites"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: simula-friendly-slugs.php
+msgid "https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites"
+msgstr ""
+
+#. Description of the plugin
+#: simula-friendly-slugs.php
+msgid "Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation."
+msgstr ""
+
+#. Author of the plugin
+#: simula-friendly-slugs.php
+msgid "Simula"
+msgstr ""
+
+#. Author URI of the plugin
+#: simula-friendly-slugs.php
+msgid "https://simulalab.org/"
+msgstr ""
+
+#: simula-friendly-slugs.php:163
+msgid "Google API key cannot be empty."
+msgstr ""
+
+#: simula-friendly-slugs.php:166
+msgid "Invalid Google API key format."
+msgstr ""
+
+#: simula-friendly-slugs.php:173
+msgid "Google API key validation failed."
+msgstr ""
+
+#: simula-friendly-slugs.php:382
+#: simula-friendly-slugs.php:523
+msgid "Google Translate"
+msgstr ""
+
+#: simula-friendly-slugs.php:398
+#: simula-friendly-slugs.php:399
+msgid "Arabic Slugs"
+msgstr ""
+
+#: simula-friendly-slugs.php:420
+msgid "Slug Generation Method"
+msgstr ""
+
+#: simula-friendly-slugs.php:428
+msgid "Method"
+msgstr ""
+
+#: simula-friendly-slugs.php:437
+msgid "Translation Settings"
+msgstr ""
+
+#: simula-friendly-slugs.php:445
+msgid "Translation Service"
+msgstr ""
+
+#: simula-friendly-slugs.php:454
+msgid "Google API Key"
+msgstr ""
+
+#: simula-friendly-slugs.php:462
+msgid "Always regenerate slug on title change"
+msgstr ""
+
+#: simula-friendly-slugs.php:473
+msgid "Choose how slugs are generated for Arabic titles."
+msgstr ""
+
+#: simula-friendly-slugs.php:480
+msgid "Configure translation provider and credentials."
+msgstr ""
+
+#: simula-friendly-slugs.php:490
+msgid "No Change"
+msgstr ""
+
+#: simula-friendly-slugs.php:490
+msgid "Leave the slug unchanged."
+msgstr ""
+
+#: simula-friendly-slugs.php:491
+msgid "Transliteration"
+msgstr ""
+
+#: simula-friendly-slugs.php:491
+msgid "Use PHP/ICU to transliterate Arabic characters."
+msgstr ""
+
+#: simula-friendly-slugs.php:492
+msgid "3arabizi"
+msgstr ""
+
+#: simula-friendly-slugs.php:492
+msgid "Convert Arabic to 3arabizi numerals."
+msgstr ""
+
+#: simula-friendly-slugs.php:493
+msgid "Hash"
+msgstr ""
+
+#: simula-friendly-slugs.php:493
+msgid "Generate a short, unique hash from the title."
+msgstr ""
+
+#: simula-friendly-slugs.php:494
+msgid "Translation"
+msgstr ""
+
+#: simula-friendly-slugs.php:494
+msgid "Translate the title to English via the selected service."
+msgstr ""
+
+#: simula-friendly-slugs.php:515
+msgid "When this is checked, updating the title will always re-build the slug."
+msgstr ""
+
+#: simula-friendly-slugs.php:523
+msgid "Use Google Translate API."
+msgstr ""
+
+#: simula-friendly-slugs.php:568
+msgid "You do not have permission to edit these settings."
+msgstr ""
+
+#: simula-friendly-slugs.php:594
+msgid "Please choose a valid Translation Service."
+msgstr ""
+
+#: simula-friendly-slugs.php:668
+msgid "Simula Friendly Arabic Slugs Settings"
+msgstr ""

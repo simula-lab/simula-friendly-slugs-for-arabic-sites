@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites
 
  * Description: Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
- * Version: 0.9.6
+ * Version: 0.10.7
  * Author: Simula
  * Author URI: https://simulalab.org/
  * License: GPL2
@@ -331,6 +331,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     private function __construct() {
         // Load textdomain
         add_action( 'init', [ $this, 'load_textdomain' ] );
+        add_action( 'init', [ $this, 'setup_providers' ], 11 );
         
         // Admin settings
         add_action( 'admin_menu', [ $this, 'register_settings_page' ] );
@@ -340,7 +341,12 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         add_filter( 'wp_unique_post_slug', [ $this, 'generate_friendly_slug' ], 10, 6 );
         add_filter( 'wp_insert_post_data', [ $this, 'maybe_generate_slug_on_save' ], 9, 2 );
 
-        // ——— ADD THIS BLOCK ———
+    }
+
+    /**
+    * After load_textdomain(), build the $this->providers array.
+    */
+    public function setup_providers() {    
         $options     = get_option( self::OPTION_KEY, [] );
         $api_keys    = $options['api_keys'] ?? [];
         $defs        = self::get_translation_providers_definitions();
