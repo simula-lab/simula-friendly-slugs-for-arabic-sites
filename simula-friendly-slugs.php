@@ -132,6 +132,7 @@ class Simula_Friendly_Slugs_Provider_Google implements Simula_Friendly_Slugs_Pro
      */
     public function translate( string $text ): string {
         if ( empty( $this->api_key ) ) {
+            error_log( "[SimulaFriendlySlugs] No API key, skipping translation of “{$text}”" );
             return $text;
         }
 
@@ -337,6 +338,19 @@ class Simula_Friendly_Slugs {
 
         // Override slug on save
         add_filter( 'wp_unique_post_slug', [ $this, 'generate_friendly_slug' ], 10, 6 );
+        add_filter( 'wp_insert_post_data', [ $this, 'maybe_generate_slug_on_save' ], 9, 2 );
+
+        // ——— ADD THIS BLOCK ———
+        $options     = get_option( self::OPTION_KEY, [] );
+        $api_keys    = $options['api_keys'] ?? [];
+        $defs        = self::get_translation_providers_definitions();
+        foreach ( $defs as $key => $def ) {
+            $class_name = $def['class'];
+            if ( class_exists( $class_name ) ) {
+                $key_to_use = $api_keys[ $key ] ?? '';
+                $this->providers[ $key ] = new $class_name( $key_to_use );
+            }
+        }
     }    
 
     public static function instance() {
@@ -586,7 +600,7 @@ class Simula_Friendly_Slugs {
                     }
                     // on success, result is either string or array
                     if ( is_array( $result ) ) {
-                        $valid['api_keys'][ $s ]             = sanitize_text_field( $result['key'] ?? '' );
+                        $valid['api_keys'][ $s ] = sanitize_text_field( $result['key'] ?? '' );
                         $valid['custom_api_endpoint'] = esc_url_raw( $result['endpoint'] ?? '' );
                     } else {
                         $valid['api_keys'][ $s ] = sanitize_text_field( $result );
@@ -630,13 +644,20 @@ class Simula_Friendly_Slugs {
 
     public function generate_friendly_slug( $override_slug, $post_ID, $post_status, $post_type, $post_parent, $original_slug ) {
         $method = ( get_option( self::OPTION_KEY, [] )['method'] ?? 'none' );
-        if ( $method === 'none' ) {
+        if ( 'none' === $method  ) {
             return $override_slug;
         }
+
         $post   = get_post( $post_ID );
         if ( ! $post instanceof WP_Post ) {
             return $override_slug;
         }
+
+        // Only apply if title contains Arabic characters
+        if ( ! preg_match( '/\p{Arabic}/u', $post->post_title ) ) {
+            return $override_slug;
+        }
+        
         $converter = "convert_{$method}";
         if ( is_callable( [ $this, $converter ] ) ) {
             $new_slug = $this->$converter( $post->post_title );
@@ -653,6 +674,55 @@ class Simula_Friendly_Slugs {
         }
         return $this->providers[ $service ]->translate( $text );
     }
+
+    /**
+     * Force a friendly slug into the post_name on save,
+     * including for draft statuses.
+     *
+     * @param array $data    Sanitized post data about to be inserted.
+     * @param array $postarr Raw $_POST data for the post.
+     * @return array Modified $data with our custom slug.
+     */
+    public function maybe_generate_slug_on_save( array $data, array $postarr ): array {
+        // Skip auto-drafts (empty titles, etc.)
+        if ( 'auto-draft' === $data['post_status'] ) {
+            return $data;
+        }
+
+        // Only run if we have a title
+        if ( empty( $data['post_title'] ) ) {
+            return $data;
+        }
+
+        // Only apply if title contains Arabic characters
+        if ( ! preg_match( '/\p{Arabic}/u', $data['post_title'] ) ) {
+            return $data;
+        }
+
+        // Get the chosen method
+        $opts   = get_option( self::OPTION_KEY, [] );
+        $method = $opts['method'] ?? 'none';
+
+        if ( 'none' === $method ) {
+            return $data;
+        }
+
+        // Build converter method name, e.g. "convert_translation"
+        $converter = "convert_{$method}";
+        if ( ! is_callable( [ $this, $converter ] ) ) {
+            return $data;
+        }
+
+        // Perform conversion on the raw title
+        $new_slug_source = $this->$converter( $data['post_title'] );
+
+        // Sanitize into a slug
+        // Use $data['post_name'] as fallback (in case WP already wrote something)
+        $data['post_name'] = sanitize_title( $new_slug_source, $data['post_name'], 'save' );
+
+        return $data;
+    }
+
 
     /**
      * Transliteration converter (using WP/ICU)
