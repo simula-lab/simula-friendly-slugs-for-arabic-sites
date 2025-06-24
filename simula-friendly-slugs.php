@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites
 
  * Description: Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
- * Version: 0.8.6
+ * Version: 0.9.6
  * Author: Simula
  * Author URI: https://simulalab.org/
  * License: GPL2
@@ -490,6 +490,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             'none'               => [ 'label' => __( 'No Change', self::TEXT_DOMAIN ), 'desc' => __( 'Leave the slug unchanged.', self::TEXT_DOMAIN ) ],
             'wp_transliteration' => [ 'label' => __( 'Transliteration', self::TEXT_DOMAIN ), 'desc' => __( 'Use PHP/ICU to transliterate Arabic characters.', self::TEXT_DOMAIN ) ],
             'arabizi'           => [ 'label' => __( '3arabizi', self::TEXT_DOMAIN ), 'desc' => __( 'Convert Arabic to 3arabizi numerals.', self::TEXT_DOMAIN ) ],
+            'hash'              => [ 'label' => __( 'Hash', self::TEXT_DOMAIN ), 'desc' => __( 'Generate a short, unique hash from the title.', self::TEXT_DOMAIN ) ],
             'translation'       => [ 'label' => __( 'Translation', self::TEXT_DOMAIN ), 'desc' => __( 'Translate the title to English via the selected service.', self::TEXT_DOMAIN ) ],
         ];
         foreach ( $methods as $key => $data ) {
@@ -571,7 +572,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         $valid   = [];
-        $methods = [ 'wp_transliteration', 'custom_transliteration', 'arabizi', 'translation', 'none' ];
+        $methods = [ 'wp_transliteration', 'custom_transliteration', 'arabizi', 'translation', 'hash', 'none' ];
 
         // 1) Method
         if ( isset( $input['method'] ) && in_array( $input['method'], $methods, true ) ) {
@@ -844,6 +845,23 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
         $out = preg_replace('/\s+/', ' ', $out);
         return trim( strtolower( $out ) );
+    }
+
+    /**
+     * Hash converter: generate a short, 8-character hash of the title.
+     *
+     * @param string $text
+     * @return string
+     */
+    private function convert_hash( $text ) {
+        // Create an MD5-based hash, then take first 8 chars
+        // You could also use crc32() or any other algorithm.
+        $hash = substr( md5( $text ), 0, 8 );
+        // Ensure it always starts with a letter (optional):
+        if ( preg_match( '/^[0-9]/', $hash ) ) {
+            $hash = 'h' . substr( $hash, 0, 7 );
+        }
+        return $hash;
     }
 }
 
