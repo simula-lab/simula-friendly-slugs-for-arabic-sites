@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites
 
  * Description: Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
- * Version: 0.6.4
+ * Version: 0.7.6
  * Author: Simula
  * Author URI: https://simulalab.org/
  * License: GPL2
@@ -456,6 +456,14 @@ class Simula_Friendly_Slugs {
             self::TEXT_DOMAIN,
             'simula_friendly_slugs_translation'
         );
+
+        add_settings_field(
+            'regenerate_on_change',
+            __( 'Always regenerate slug on title change', self::TEXT_DOMAIN ),
+            [ $this, 'field_regenerate_on_change_html' ],
+            self::TEXT_DOMAIN,
+            'simula_friendly_slugs_main'
+        );
     }
 
     /**
@@ -495,6 +503,17 @@ class Simula_Friendly_Slugs {
             );
         }
     }
+
+    public function field_regenerate_on_change_html() {
+        $opts    = get_option( self::OPTION_KEY, [] );
+        $enabled = ! empty( $opts['regenerate_on_change'] );
+        printf(
+            '<label><input type="checkbox" name="%1$s[regenerate_on_change]" value="1" %2$s> %3$s</label>',
+            esc_attr( self::OPTION_KEY ),
+            checked( $enabled, true, false ),
+            esc_html__( 'When this is checked, updating the title will always re-build the slug.', self::TEXT_DOMAIN )
+        );
+    }    
 
     public function field_translation_service_html() {
         $options   = get_option( self::OPTION_KEY, [] );
@@ -612,6 +631,21 @@ class Simula_Friendly_Slugs {
             }
         }
 
+        // 3) Preserve existing translation settings when *not* in translation mode
+        if ( 'translation' !== $valid['method'] ) {
+            if ( isset( $previous['translation_service'] ) ) {
+                $valid['translation_service'] = $previous['translation_service'];
+            }
+            if ( isset( $previous['api_keys'] ) ) {
+                $valid['api_keys'] = $previous['api_keys'];
+            }
+            if ( isset( $previous['custom_api_endpoint'] ) ) {
+                $valid['custom_api_endpoint'] = $previous['custom_api_endpoint'];
+            }
+        }
+
+        $valid['regenerate_on_change'] = ! empty( $input['regenerate_on_change'] ) ? 1 : 0;
+
         return $valid;
     }
 
@@ -699,8 +733,23 @@ class Simula_Friendly_Slugs {
             return $data;
         }
 
-        // Get the chosen method
-        $opts   = get_option( self::OPTION_KEY, [] );
+        // Fetch our regenerate flag
+        $opts = get_option( self::OPTION_KEY, [] );
+        $always = ! empty( $opts['regenerate_on_change'] );
+        // If not “always regenerate” and this post already has a slug, leave it
+        if ( ! $always && ! empty( $postarr['post_name'] ) ) {
+            return $data;
+        }
+
+        // If “always” but title not changed, leave it
+        if ( $always && ! empty( $postarr['ID'] ) ) {
+            $existing = get_post( (int) $postarr['ID'] );
+            if ( $existing instanceof WP_Post && $existing->post_title === $data['post_title'] ) {
+                return $data;
+            }
+        }
+
+        // Ok—it’s either new or title changed under “always” mode. Regenerate.
         $method = $opts['method'] ?? 'none';
 
         if ( 'none' === $method ) {
