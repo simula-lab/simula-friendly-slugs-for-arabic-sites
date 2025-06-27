@@ -131,20 +131,26 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
      */
     public function translate( string $text ): string {
         if ( empty( $this->api_key ) ) {
-            error_log( "[SimulaFriendlySlugs] No API key, skipping translation of “{$text}”" );
+            if ( defined('WP_DEBUG') && WP_DEBUG ) {
+                error_log( "[SimulaFriendlySlugs] No API key, skipping translation of “{$text}”" );
+            }
             return $text;
         }
 
         try {
             $result = $this->do_request( $text, $this->api_key );
             if ( is_wp_error( $result ) ) {
-                error_log( '[SimulaFriendlySlugs] Google translate error: ' . $result->get_error_message() );
+                if ( defined('WP_DEBUG') && WP_DEBUG ) {
+                    error_log( '[SimulaFriendlySlugs] Google translate error: ' . $result->get_error_message() );
+                }
                 return $text;
             }
 
             return (string) $result['data']['translations'][0]['translatedText'];
         } catch ( \Throwable $e ) {
-            error_log( '[SimulaFriendlySlugs] Exception in Google translate: ' . $e->getMessage() );
+            if ( defined('WP_DEBUG') && WP_DEBUG ) {
+                error_log( '[SimulaFriendlySlugs] Exception in Google translate: ' . $e->getMessage() );
+            }
             return $text;
         }
     }
@@ -159,17 +165,17 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
         $key = sanitize_text_field( $raw['key'] ?? '' );
 
         if ( '' === $key ) {
-            return new WP_Error( 'empty', __( 'Google API key cannot be empty.', Simula_Friendly_Slugs_For_Arabic_Sites::TEXT_DOMAIN ) );
+            return new WP_Error( 'empty', __( 'Google API key cannot be empty.', 'simula-friendly-slugs-for-arabic-sites' ) );
         }
         if ( ! preg_match( '/^AIza[0-9A-Za-z\-_]{35}$/', $key ) ) {
-            return new WP_Error( 'format', __( 'Invalid Google API key format.', Simula_Friendly_Slugs_For_Arabic_Sites::TEXT_DOMAIN ) );
+            return new WP_Error( 'format', __( 'Invalid Google API key format.', 'simula-friendly-slugs-for-arabic-sites' ) );
         }
 
         // Live‐test the key with a dummy translation
         $test = $this->do_request( 'validation_test', $key );
         if ( is_wp_error( $test ) ) {
             return new WP_Error( 'invalid_key',
-                __( 'Google API key validation failed.', Simula_Friendly_Slugs_For_Arabic_Sites::TEXT_DOMAIN )
+                __( 'Google API key validation failed.', 'simula-friendly-slugs-for-arabic-sites' )
                 . ' ' . $test->get_error_message()
             );
         }
@@ -257,9 +263,12 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
 //         try {
 //             $result = $this->do_request( $text );
 //             if ( is_wp_error( $result ) ) {
-//                 error_log( '[SimulaFriendlySlugs] Custom translate error: ' . $result->get_error_message() );
+//                 if ( defined('WP_DEBUG') && WP_DEBUG ) {
+//                     error_log( '[SimulaFriendlySlugs] Custom translate error: ' . $result->get_error_message() );
+//                 }
 //                 return $text;
 //             }
+
 
 //             /**
 //              * Allow themes/plugins to map the custom response
@@ -291,13 +300,13 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
 
 //         if ( '' === $endpoint || ! filter_var( $endpoint, FILTER_VALIDATE_URL ) ) {
 //             return new WP_Error( 'invalid_endpoint',
-//                 __( 'Custom API endpoint is invalid.', Simula_Friendly_Slugs_For_Arabic_Sites::TEXT_DOMAIN )
+//                 __( 'Custom API endpoint is invalid.', 'simula-friendly-slugs-for-arabic-sites' )
 //             );
 //         }
 
 //         if ( '' === $key ) {
 //             return new WP_Error( 'empty_key',
-//                 __( 'Custom API key cannot be empty.', Simula_Friendly_Slugs_For_Arabic_Sites::TEXT_DOMAIN )
+//                 __( 'Custom API key cannot be empty.', 'simula-friendly-slugs-for-arabic-sites' )
 //             );
 //         }
 
@@ -308,7 +317,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
 //         $test = $this->do_request( 'validation_test' );
 //         if ( is_wp_error( $test ) ) {
 //             return new WP_Error( 'invalid_credentials',
-//                 __( 'Custom API validation failed.', Simula_Friendly_Slugs_For_Arabic_Sites::TEXT_DOMAIN )
+//                 __( 'Custom API validation failed.', 'simula-friendly-slugs-for-arabic-sites' )
 //                 . ' ' . $test->get_error_message()
 //             );
 //         }
@@ -319,7 +328,6 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
 // }
 
 class Simula_Friendly_Slugs_For_Arabic_Sites {
-    const TEXT_DOMAIN = 'simula-friendly-slugs-for-arabic-sites';
     const OPTION_KEY  = 'simula_friendly_slugs_for_arabic_sites_options';
 
     private static $instance;
@@ -367,7 +375,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     /** Load plugin textdomain */
     public function load_textdomain() {
         load_plugin_textdomain( 
-            self::TEXT_DOMAIN, 
+            'simula-friendly-slugs-for-arabic-sites', 
             false, 
             dirname( plugin_basename( __FILE__ ) ) . '/languages/' 
         );
@@ -384,13 +392,13 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             'simula_friendly_slugs_for_arabic_sites_translation_providers',
             [
                 'google' => [
-                    'label' => __( 'Google Translate', self::TEXT_DOMAIN ),
+                    'label' => __( 'Google Translate', 'simula-friendly-slugs-for-arabic-sites' ),
                     'class' => 'Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google',
                 ],
                 // you can add 'custom' here by default if you wish
                 // ],
                 // 'custom' => [
-                //     'label' => __( 'Custom API',      self::TEXT_DOMAIN ),
+                //     'label' => __( 'Custom API',      'simula-friendly-slugs-for-arabic-sites' ),
                 //     'class' => 'Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Custom',
                 // ]
             ]
@@ -400,10 +408,10 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     /** Add settings page under Settings menu */
     public function register_settings_page() {
         add_options_page(
-            __( 'Friendly Slugs', self::TEXT_DOMAIN ),
-            __( 'Friendly Slugs', self::TEXT_DOMAIN ),
+            __( 'Friendly Slugs', 'simula-friendly-slugs-for-arabic-sites' ),
+            __( 'Friendly Slugs', 'simula-friendly-slugs-for-arabic-sites' ),
             'manage_options',
-            self::TEXT_DOMAIN,
+            'simula-friendly-slugs-for-arabic-sites',
             [ $this, 'render_settings_page' ]
         );
     }
@@ -414,7 +422,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     public function register_settings() {
         // Register the main option container
         register_setting(
-            self::TEXT_DOMAIN,
+            'simula-friendly-slugs-for-arabic-sites',
             self::OPTION_KEY,
             [ $this, 'sanitize_settings' ]
         );
@@ -422,51 +430,51 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         // Main section for method
         add_settings_section(
             'simula_friendly_slugs_for_arabic_sites_main',
-            __( 'Slug Generation Method', self::TEXT_DOMAIN ),
+            __( 'Slug Generation Method', 'simula-friendly-slugs-for-arabic-sites' ),
             [ $this, 'section_main_html' ],
-            self::TEXT_DOMAIN
+            'simula-friendly-slugs-for-arabic-sites'
         );
     
         // Field: method radio list
         add_settings_field(
             'method',
-            __( 'Method', self::TEXT_DOMAIN ),
+            __( 'Method', 'simula-friendly-slugs-for-arabic-sites' ),
             [ $this, 'field_method_html' ],
-            self::TEXT_DOMAIN,
+            'simula-friendly-slugs-for-arabic-sites',
             'simula_friendly_slugs_for_arabic_sites_main'
         );
     
         // Translation settings section
         add_settings_section(
             'simula_friendly_slugs_for_arabic_sites_translation',
-            __( 'Translation Settings', self::TEXT_DOMAIN ),
+            __( 'Translation Settings', 'simula-friendly-slugs-for-arabic-sites' ),
             [ $this, 'section_translation_html' ],
-            self::TEXT_DOMAIN
+            'simula-friendly-slugs-for-arabic-sites'
         );
     
         // Field: Translation service dropdown
         add_settings_field(
             'translation_service',
-            __( 'Translation Service', self::TEXT_DOMAIN ),
+            __( 'Translation Service', 'simula-friendly-slugs-for-arabic-sites' ),
             [ $this, 'field_translation_service_html' ],
-            self::TEXT_DOMAIN,
+            'simula-friendly-slugs-for-arabic-sites',
             'simula_friendly_slugs_for_arabic_sites_translation'
         );
     
         // Field: API key input for Google
         add_settings_field(
             'google_api_key',
-            __( 'Google API Key', self::TEXT_DOMAIN ),
+            __( 'Google API Key', 'simula-friendly-slugs-for-arabic-sites' ),
             [ $this, 'field_api_key_html' ],
-            self::TEXT_DOMAIN,
+            'simula-friendly-slugs-for-arabic-sites',
             'simula_friendly_slugs_for_arabic_sites_translation'
         );
 
         add_settings_field(
             'regenerate_on_change',
-            __( 'Always regenerate slug on title change', self::TEXT_DOMAIN ),
+            __( 'Always regenerate slug on title change', 'simula-friendly-slugs-for-arabic-sites' ),
             [ $this, 'field_regenerate_on_change_html' ],
-            self::TEXT_DOMAIN,
+            'simula-friendly-slugs-for-arabic-sites',
             'simula_friendly_slugs_for_arabic_sites_main'
         );
     }
@@ -475,14 +483,14 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
      * Description for the main section
      */
     public function section_main_html() {
-        echo '<p>' . esc_html__( 'Choose how slugs are generated for Arabic titles.', self::TEXT_DOMAIN ) . '</p>';
+        echo '<p>' . esc_html__( 'Choose how slugs are generated for Arabic titles.', 'simula-friendly-slugs-for-arabic-sites' ) . '</p>';
     }
 
     /**
      * Description for the translation section
      */
     public function section_translation_html() {
-        echo '<p>' . esc_html__( 'Configure translation provider and credentials.', self::TEXT_DOMAIN ) . '</p>';
+        echo '<p>' . esc_html__( 'Configure translation provider and credentials.', 'simula-friendly-slugs-for-arabic-sites' ) . '</p>';
     }
 
     /**
@@ -492,11 +500,11 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         $options = get_option( self::OPTION_KEY, [] );
         $current = $options['method'] ?? 'none';
         $methods = [
-            'none'               => [ 'label' => __( 'No Change', self::TEXT_DOMAIN ), 'desc' => __( 'Leave the slug unchanged.', self::TEXT_DOMAIN ) ],
-            'wp_transliteration' => [ 'label' => __( 'Transliteration', self::TEXT_DOMAIN ), 'desc' => __( 'Use PHP/ICU to transliterate Arabic characters.', self::TEXT_DOMAIN ) ],
-            'arabizi'           => [ 'label' => __( '3arabizi', self::TEXT_DOMAIN ), 'desc' => __( 'Convert Arabic to 3arabizi numerals.', self::TEXT_DOMAIN ) ],
-            'hash'              => [ 'label' => __( 'Hash', self::TEXT_DOMAIN ), 'desc' => __( 'Generate a short, unique hash from the title.', self::TEXT_DOMAIN ) ],
-            'translation'       => [ 'label' => __( 'Translation', self::TEXT_DOMAIN ), 'desc' => __( 'Translate the title to English via the selected service.', self::TEXT_DOMAIN ) ],
+            'none'               => [ 'label' => __( 'No Change', 'simula-friendly-slugs-for-arabic-sites' ), 'desc' => __( 'Leave the slug unchanged.', 'simula-friendly-slugs-for-arabic-sites' ) ],
+            'wp_transliteration' => [ 'label' => __( 'Transliteration', 'simula-friendly-slugs-for-arabic-sites' ), 'desc' => __( 'Use PHP/ICU to transliterate Arabic characters.', 'simula-friendly-slugs-for-arabic-sites' ) ],
+            'arabizi'           => [ 'label' => __( '3arabizi', 'simula-friendly-slugs-for-arabic-sites' ), 'desc' => __( 'Convert Arabic to 3arabizi numerals.', 'simula-friendly-slugs-for-arabic-sites' ) ],
+            'hash'              => [ 'label' => __( 'Hash', 'simula-friendly-slugs-for-arabic-sites' ), 'desc' => __( 'Generate a short, unique hash from the title.', 'simula-friendly-slugs-for-arabic-sites' ) ],
+            'translation'       => [ 'label' => __( 'Translation', 'simula-friendly-slugs-for-arabic-sites' ), 'desc' => __( 'Translate the title to English via the selected service.', 'simula-friendly-slugs-for-arabic-sites' ) ],
         ];
         foreach ( $methods as $key => $data ) {
             printf(
@@ -517,7 +525,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             '<label><input type="checkbox" name="%1$s[regenerate_on_change]" value="1" %2$s> %3$s</label>',
             esc_attr( self::OPTION_KEY ),
             checked( $enabled, true, false ),
-            esc_html__( 'When this is checked, updating the title will always re-build the slug.', self::TEXT_DOMAIN )
+            esc_html__( 'When this is checked, updating the title will always re-build the slug.', 'simula-friendly-slugs-for-arabic-sites' )
         );
     }    
 
@@ -525,7 +533,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         $options   = get_option( self::OPTION_KEY, [] );
         $current   = $options['translation_service'] ?? 'google';
         $providers = [
-            'google' => [ 'label' => __( 'Google Translate', self::TEXT_DOMAIN ), 'desc' => __( 'Use Google Translate API.', self::TEXT_DOMAIN ) ],
+            'google' => [ 'label' => __( 'Google Translate', 'simula-friendly-slugs-for-arabic-sites' ), 'desc' => __( 'Use Google Translate API.', 'simula-friendly-slugs-for-arabic-sites' ) ],
             // Add other providers here with 'key' => [ label, desc ]
         ];
         foreach ( $providers as $key => $data ) {
@@ -570,7 +578,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             add_settings_error(
                 self::OPTION_KEY,
                 'permission_denied',
-                __( 'You do not have permission to edit these settings.', self::TEXT_DOMAIN ),
+                __( 'You do not have permission to edit these settings.', 'simula-friendly-slugs-for-arabic-sites' ),
                 'error'
             );
             return $previous;
@@ -596,7 +604,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 add_settings_error(
                     self::OPTION_KEY,
                     'invalid_service',
-                    __( 'Please choose a valid Translation Service.', self::TEXT_DOMAIN ),
+                    __( 'Please choose a valid Translation Service.', 'simula-friendly-slugs-for-arabic-sites' ),
                     'error'
                 );
                 return $previous;
@@ -670,11 +678,11 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     public function render_settings_page() {
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e( 'Simula Friendly Slugs Settings', self::TEXT_DOMAIN ); ?></h1>
+            <h1><?php esc_html_e( 'Simula Friendly Slugs Settings', 'simula-friendly-slugs-for-arabic-sites' ); ?></h1>
             <form action="options.php" method="post">
                 <?php
-                settings_fields( self::TEXT_DOMAIN );
-                do_settings_sections( self::TEXT_DOMAIN );
+                settings_fields( 'simula-friendly-slugs-for-arabic-sites' );
+                do_settings_sections( 'simula-friendly-slugs-for-arabic-sites' );
                 submit_button();
                 ?>
             </form>
