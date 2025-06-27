@@ -1,8 +1,8 @@
-=== Simula Levantine Dates for Arabic Sites ===
+=== Simula Friendly Slugs for Arabic Sites ===
 Contributors: simulalab 
 Tags: arabic, slug
 Requires at least: 4.6
-Tested up to: 6.5
+Tested up to: 6.8
 Requires PHP: 7.0
 Stable tag: 1.0.0
 License: GPLv2

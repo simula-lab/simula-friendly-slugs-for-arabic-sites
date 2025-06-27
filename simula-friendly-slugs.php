@@ -131,26 +131,26 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
      */
     public function translate( string $text ): string {
         if ( empty( $this->api_key ) ) {
-            if ( defined('WP_DEBUG') && WP_DEBUG ) {
-                error_log( "[SimulaFriendlySlugs] No API key, skipping translation of “{$text}”" );
-            }
+            // if ( defined('WP_DEBUG') && WP_DEBUG ) {
+            //     error_log( "[SimulaFriendlySlugs] No API key, skipping translation of “{$text}”" );
+            // }
             return $text;
         }
 
         try {
             $result = $this->do_request( $text, $this->api_key );
             if ( is_wp_error( $result ) ) {
-                if ( defined('WP_DEBUG') && WP_DEBUG ) {
-                    error_log( '[SimulaFriendlySlugs] Google translate error: ' . $result->get_error_message() );
-                }
+                // if ( defined('WP_DEBUG') && WP_DEBUG ) {
+                //     error_log( '[SimulaFriendlySlugs] Google translate error: ' . $result->get_error_message() );
+                // }
                 return $text;
             }
 
             return (string) $result['data']['translations'][0]['translatedText'];
         } catch ( \Throwable $e ) {
-            if ( defined('WP_DEBUG') && WP_DEBUG ) {
-                error_log( '[SimulaFriendlySlugs] Exception in Google translate: ' . $e->getMessage() );
-            }
+            // if ( defined('WP_DEBUG') && WP_DEBUG ) {
+            //     error_log( '[SimulaFriendlySlugs] Exception in Google translate: ' . $e->getMessage() );
+            // }
             return $text;
         }
     }
