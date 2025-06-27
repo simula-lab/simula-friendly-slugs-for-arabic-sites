@@ -9,7 +9,7 @@ License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Donate link: https://simulalab.org
 
-Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
+Automatically generate friendly slugs for posts/pages with Arabic titles via transliteration, 3arabizi or translation.
 
 == Description ==
 
@@ -18,13 +18,14 @@ The plugin is also available to download from the official wordpress plugins dir
 
 It supports generating slugs:
 
-- Transliteration
-- Translation
-- Hash
+- Transliteration (using PHP/ICU)
+- 3arabizi
+- Hash (from the Arabic title)
+- Translation (Requires a Google Translate API key)
 
 After installing and activating the plugin, navigate to the "Settings" menu in the Admin Dashboard and select "Friendly slugs".
 
-The plugin has no effect on non-Arabic post titles or non-Arabic sites.
+The plugin has no effect on non-Arabic post titles.
 
 == Screenshots ==
 
@@ -45,4 +46,4 @@ The plugin has no effect on non-Arabic post titles or non-Arabic sites.
 
 = Does the plugin have an effect on the public facing side of non-Arabic sites? =
 
-No.
+Only if the method was set to anything other than "No Change" and the post title was in Arabic.

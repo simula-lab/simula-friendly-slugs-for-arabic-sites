@@ -40,7 +40,7 @@ Activate the plugin upon successful installation.
 
 WIP
 
-<img src="assets/screenshot-1.png" alt="settings" width="400"/>
+<img src="assets/screenshot-1.png" alt="settings" width="800"/>
 
 <img src="assets/screenshot-2.png" alt="example" width="400"/>
 

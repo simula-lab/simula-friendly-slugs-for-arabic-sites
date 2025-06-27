@@ -18,15 +18,6 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-/*
- * Only load this plugin on Arabic-language sites.
- * get_bloginfo('language') returns strings like "ar", "ar-EG", "ar-SA", etc.
- */
-$simula_friendly_slugs_for_arabic_sites_locale = get_bloginfo( 'language' );
-if ( 'ar' !== $simula_friendly_slugs_for_arabic_sites_locale && 0 !== strpos( $simula_friendly_slugs_for_arabic_sites_locale, 'ar-' ) ) {
-    return; // not Arabic — stop loading here
-}
-
 /**
  * Apply filters to HTTP args for requests.
  *

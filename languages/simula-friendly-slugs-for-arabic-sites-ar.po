@@ -59,7 +59,7 @@ msgstr "مترجم ‫Google"
 
 #: simula-friendly-slugs.php:398 simula-friendly-slugs.php:399
 msgid "Friendly Slugs"
-msgstr "‫Slugs عربية"
+msgstr "‫Slugs لطيفة"
 
 #: simula-friendly-slugs.php:420
 msgid "Slug Generation Method"
