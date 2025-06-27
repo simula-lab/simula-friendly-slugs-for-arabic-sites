@@ -1,6 +1,6 @@
 === Simula Levantine Dates for Arabic Sites ===
 Contributors: simulalab 
-Tags: arabic, numerals, levantine, تاريخ ,أرقام
+Tags: arabic, slug, 
 Requires at least: 4.6
 Tested up to: 6.5
 Requires PHP: 7.0
@@ -29,21 +29,25 @@ The plugin has no effect on non-Arabic post titles.
 
 == Screenshots ==
 
-1. ٍThe settings user-interface
-2. The slug of a post with an Arabic title with the transliteration option selected
-3. The slug of a post with an Arabic title with the translation option selected
+1. ٍscreenshot-1.png – The settings user-interface
+2. ٍscreenshot-2.png - The slug of a post with an Arabic title with the transliteration option selected
+3. ٍscreenshot-3.png - The slug of a post with an Arabic title with the translation option selected
 
 == Changelog ==
 
-= 1.0 =
+= 1.0.0 =
 * This is the first version
 
 == Upgrade Notice ==
 
-= 1.0 =
+= 1.0.0 =
 
 == Frequently Asked Questions ==
 
 = Does the plugin have an effect on the public facing side of non-Arabic sites? =
 
 Only if the method was set to anything other than "No Change" and the post title was in Arabic.
+
+= Does it work with custom post types? = 
+
+Yes

@@ -63,7 +63,7 @@ msgstr "‫Slugs لطيفة"
 
 #: simula-friendly-slugs.php:420
 msgid "Slug Generation Method"
-msgstr "طريقة توليد ال‫Slugs"
+msgstr "طريقة توليد الـ‫Slugs"
 
 #: simula-friendly-slugs.php:428
 msgid "Method"
@@ -87,7 +87,7 @@ msgstr "إعادة توليد ‫Slugs دائمًا عند تغيير العنو
 
 #: simula-friendly-slugs.php:473
 msgid "Choose how slugs are generated for Arabic titles."
-msgstr "اختر كيفية توليد ‫Slugs للعناوين العربية."
+msgstr "خيارات توليد الـ ‫Slugs للعناوين العربية."
 
 #: simula-friendly-slugs.php:480
 msgid "Configure translation provider and credentials."
