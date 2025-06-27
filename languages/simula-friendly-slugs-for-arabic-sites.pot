@@ -57,7 +57,7 @@ msgstr ""
 
 #: simula-friendly-slugs.php:398
 #: simula-friendly-slugs.php:399
-msgid "Arabic Slugs"
+msgid "Friendly Slugs"
 msgstr ""
 
 #: simula-friendly-slugs.php:420
@@ -149,5 +149,5 @@ msgid "Please choose a valid Translation Service."
 msgstr ""
 
 #: simula-friendly-slugs.php:668
-msgid "Simula Friendly Arabic Slugs Settings"
+msgid "Simula Friendly Slugs Settings"
 msgstr ""

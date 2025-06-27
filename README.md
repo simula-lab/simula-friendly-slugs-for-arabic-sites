@@ -17,7 +17,7 @@ The plugin is also available to download from the official wordpress plugins dir
   - No Change (e.g. `مرحبا` → `مرحبا`)
 
 - Settings UI
-  - Intuitive admin page under **Settings → Arabic Slugs**  
+  - Intuitive admin page under **Settings → Friendly Slugs**  
   - Select default method, API keys, and per-post override.
 
 - Per-Post Control
@@ -39,6 +39,13 @@ Activate the plugin upon successful installation.
 ## Usage
 
 WIP
+
+<img src="assets/screenshot-1.png" alt="settings" width="400"/>
+
+<img src="assets/screenshot-2.png" alt="example" width="400"/>
+
+<img src="assets/screenshot-3.png" alt="example" width="400"/>
+
 
 ## Reporting bugs
 

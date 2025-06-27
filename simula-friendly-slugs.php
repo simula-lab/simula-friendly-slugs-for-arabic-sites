@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites
 
  * Description: Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
- * Version: 0.10.7
+ * Version: 1.0.0
  * Author: Simula
  * Author URI: https://simulalab.org/
  * License: GPL2
@@ -18,6 +18,14 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+/*
+ * Only load this plugin on Arabic-language sites.
+ * get_bloginfo('language') returns strings like "ar", "ar-EG", "ar-SA", etc.
+ */
+$simula_friendly_slugs_for_arabic_sites_locale = get_bloginfo( 'language' );
+if ( 'ar' !== $simula_friendly_slugs_for_arabic_sites_locale && 0 !== strpos( $simula_friendly_slugs_for_arabic_sites_locale, 'ar-' ) ) {
+    return; // not Arabic — stop loading here
+}
 
 /**
  * Apply filters to HTTP args for requests.
@@ -401,8 +409,8 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     /** Add settings page under Settings menu */
     public function register_settings_page() {
         add_options_page(
-            __( 'Arabic Slugs', self::TEXT_DOMAIN ),
-            __( 'Arabic Slugs', self::TEXT_DOMAIN ),
+            __( 'Friendly Slugs', self::TEXT_DOMAIN ),
+            __( 'Friendly Slugs', self::TEXT_DOMAIN ),
             'manage_options',
             self::TEXT_DOMAIN,
             [ $this, 'render_settings_page' ]
@@ -671,7 +679,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     public function render_settings_page() {
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e( 'Simula Friendly Arabic Slugs Settings', self::TEXT_DOMAIN ); ?></h1>
+            <h1><?php esc_html_e( 'Simula Friendly Slugs Settings', self::TEXT_DOMAIN ); ?></h1>
             <form action="options.php" method="post">
                 <?php
                 settings_fields( self::TEXT_DOMAIN );

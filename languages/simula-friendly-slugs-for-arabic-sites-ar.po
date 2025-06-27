@@ -17,7 +17,7 @@ msgstr ""
 #. Plugin Name of the plugin
 #: simula-friendly-slugs.php
 msgid "Simula Friendly Slugs for Arabic Sites"
-msgstr "‫Slugs صديقة للمواقع العربية من ‫Simula"
+msgstr "‫Slugs لطيفة للمواقع العربية من ‫Simula"
 
 #. Plugin URI of the plugin
 #: simula-friendly-slugs.php
@@ -29,7 +29,7 @@ msgstr "‫https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites"
 msgid ""
 "Automatically generate friendly slugs for Arabic posts/pages via "
 "transliteration, 3arabizi or translation."
-msgstr "توليد ‫slugs ‫صديقة تلقائيًا للمشاركات/الصفحات العربية عبر النقل الصوتي أو 3arabizi أو الترجمة."
+msgstr "توليد ‫slugs ‫لطيفة تلقائيًا للمشاركات/الصفحات العربية عبر النقل الصوتي أو 3arabizi أو الترجمة."
 
 #. Author of the plugin
 #: simula-friendly-slugs.php
@@ -58,7 +58,7 @@ msgid "Google Translate"
 msgstr "مترجم ‫Google"
 
 #: simula-friendly-slugs.php:398 simula-friendly-slugs.php:399
-msgid "Arabic Slugs"
+msgid "Friendly Slugs"
 msgstr "‫Slugs عربية"
 
 #: simula-friendly-slugs.php:420
@@ -150,5 +150,5 @@ msgid "Please choose a valid Translation Service."
 msgstr "يرجى اختيار خدمة ترجمة صالحة."
 
 #: simula-friendly-slugs.php:668
-msgid "Simula Friendly Arabic Slugs Settings"
-msgstr "إعدادات ‫Slugs صديقة للمواقع العربية من ‫Simula"
+msgid "Simula Friendly Slugs Settings"
+msgstr "إعدادات ‫Slugs لطيفة للمواقع العربية من ‫Simula"
