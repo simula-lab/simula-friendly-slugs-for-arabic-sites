@@ -13,7 +13,7 @@ The plugin is also available to download from the official wordpress plugins dir
   On save or publish, your Arabic post/page slug is replaced (or left intact) according to your chosen method:
   - Transliteration (e.g. `مرحبا` → `marhba`)
   - 3arabizi (e.g. `مرحبا` → `mr7ba`)
-  - Machine Translation (via Google Translate; e.g. `مرحبا` → `hello`)
+  - Machine Translation (via external services such as Google Translate API; e.g. `مرحبا` → `hello`)
   - No Change (e.g. `مرحبا` → `مرحبا`)
 
 - Settings UI
@@ -22,6 +22,19 @@ The plugin is also available to download from the official wordpress plugins dir
 
 - Per-Post Control
   - Meta box on the edit screen to override the global slug method.
+
+
+## External Services
+
+This plugin can optionally call an external translation service API when “Translation” mode is selected.
+
+When “Translation” mode is selected, the plugin will send your post’s title text to a configured external translation API endpoint (for example, Google Cloud Translation API v2 at https://translation.googleapis.com/language/translate/v2). No other data is transmitted. 
+
+If you have not provided valid credentials (for example API Key) for the service provider under Settings -> Friendly Slugs, the plugin falls back to a server-side hash of the original title and makes no external calls.
+
+You are responsible for obtaining and configuring an API key or other credentials for the selected service provider, and for complying with that provider’s terms of service and privacy policy (for Google Cloud Translation, see https://cloud.google.com/translate/terms and https://policies.google.com/privacy). 
+
+All other slug-generation methods (transliteration, 3arabizi, hash) run entirely on the host without contacting any third-party service.
 
 ## Installation
 

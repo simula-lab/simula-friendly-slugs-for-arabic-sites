@@ -2,16 +2,18 @@
 /**
  * Plugin Name: Simula Friendly Slugs for Arabic Sites
  * Plugin URI: https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites
-
  * Description: Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
  * Version: 1.0.0
+ * Requires at least: 4.6
+ * Requires PHP: 7.0
  * Author: Simula
  * Author URI: https://simulalab.org/
- * License: GPL2
+ * License: GPL v2
+ * License URI: http://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: simula-friendly-slugs-for-arabic-sites
  * Domain Path: /languages
- *
  */
+
 
 // Abort, if this file is called directly.
 if ( ! defined( 'ABSPATH' ) ) {

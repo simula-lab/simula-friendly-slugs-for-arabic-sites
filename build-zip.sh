@@ -1,8 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./build-zip.sh [plugin-slug]
+# Usage: ./build-zip.sh [--no-assets] [plugin-slug]
 # If you omit [plugin-slug], it will use the name of the current directory.
+# Pass --no-assets to skip including the assets/ folder.
+
+# 0) Parse flags
+NO_ASSETS=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-assets)
+      NO_ASSETS=1
+      shift
+      ;;
+    -*)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
 
 # 1) Determine plugin slug & target ZIP name
 PLUGIN_SLUG="${1:-$(basename "$(pwd)")}"
@@ -38,7 +57,11 @@ zip -q "$ZIP_FILE" ./*.php
 # 4c) add languages (pot, po, mo)
 [ -d "languages" ] && zip -qr "$ZIP_FILE" "languages"
 
-# 4d) add assets
-[ -d "assets" ] && zip -qr "$ZIP_FILE" "assets"
+# 4d) add assets (unless excluded)
+if [ "$NO_ASSETS" -eq 1 ]; then
+  echo "Skipping assets directory as requested."
+else
+  [ -d "assets" ] && zip -qr "$ZIP_FILE" "assets"
+fi
 
 echo "✅ $ZIP_FILE created successfully."
