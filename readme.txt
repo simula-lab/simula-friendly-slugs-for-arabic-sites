@@ -4,7 +4,7 @@ Tags: arabic, slug
 Requires at least: 4.6
 Tested up to: 6.8
 Requires PHP: 7.0
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPL v2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Donate link: https://simulalab.org
@@ -34,6 +34,9 @@ The plugin has no effect on non-Arabic post titles.
 3. screenshot-3.png - The slug of a post with an Arabic title with the translation option selected
 
 == Changelog ==
+
+= 1.1.0 =
+* The plugin now follows the Consent API Guidelines
 
 = 1.0.0 =
 * This is the first version
