@@ -337,6 +337,8 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
 
 class Simula_Friendly_Slugs_For_Arabic_Sites {
     const OPTION_KEY  = 'simula_friendly_slugs_for_arabic_sites_options';
+    const META_SLUG_LOCKED_MANUAL = '_simula_slug_locked_manual';
+    const META_LAST_GENERATED_SLUG = '_simula_last_generated_slug';
 
     private static $instance;
     /** @var Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Interface[] */
@@ -380,6 +382,175 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
         return self::$instance;
     }
+
+    /**
+     * Normalize a slug value for deterministic comparisons and storage.
+     *
+     * @param mixed $slug
+     * @return string
+     */
+    private function normalize_slug_value( $slug ): string {
+        if ( ! is_scalar( $slug ) ) {
+            return '';
+        }
+
+        return sanitize_title( (string) $slug, '', 'save' );
+    }
+
+    /**
+     * Normalize lock meta value to boolean.
+     *
+     * @param mixed $raw_value
+     * @return bool
+     */
+    private function normalize_manual_lock_value( $raw_value ): bool {
+        if ( is_bool( $raw_value ) ) {
+            return $raw_value;
+        }
+
+        if ( is_numeric( $raw_value ) ) {
+            return (int) $raw_value === 1;
+        }
+
+        if ( is_string( $raw_value ) ) {
+            $value = strtolower( trim( $raw_value ) );
+            return in_array( $value, [ '1', 'true', 'yes', 'on' ], true );
+        }
+
+        return false;
+    }
+
+    /**
+     * Read manual-lock state from post meta.
+     * Missing meta is treated as unlocked (false).
+     *
+     * @param int $post_id
+     * @return bool
+     */
+    private function get_manual_slug_lock( int $post_id ): bool {
+        if ( $post_id <= 0 ) {
+            return false;
+        }
+
+        $raw = get_post_meta( $post_id, self::META_SLUG_LOCKED_MANUAL, true );
+        return $this->normalize_manual_lock_value( $raw );
+    }
+
+    /**
+     * Persist manual-lock state as deterministic scalar meta.
+     *
+     * @param int  $post_id
+     * @param bool $is_locked
+     * @return void
+     */
+    private function set_manual_slug_lock( int $post_id, bool $is_locked ): void {
+        if ( $post_id <= 0 ) {
+            return;
+        }
+
+        update_post_meta( $post_id, self::META_SLUG_LOCKED_MANUAL, $is_locked ? '1' : '0' );
+    }
+
+    /**
+     * Read the last plugin-generated slug from post meta.
+     * Missing meta is treated as empty string.
+     *
+     * @param int $post_id
+     * @return string
+     */
+    private function get_last_generated_slug( int $post_id ): string {
+        if ( $post_id <= 0 ) {
+            return '';
+        }
+
+        $raw = get_post_meta( $post_id, self::META_LAST_GENERATED_SLUG, true );
+        return $this->normalize_slug_value( $raw );
+    }
+
+    /**
+     * Persist the latest plugin-generated slug in normalized form.
+     * Empty values clear the stored meta.
+     *
+     * @param int    $post_id
+     * @param string $slug
+     * @return void
+     */
+    private function set_last_generated_slug( int $post_id, string $slug ): void {
+        if ( $post_id <= 0 ) {
+            return;
+        }
+
+        $normalized = $this->normalize_slug_value( $slug );
+        if ( '' === $normalized ) {
+            delete_post_meta( $post_id, self::META_LAST_GENERATED_SLUG );
+            return;
+        }
+
+        update_post_meta( $post_id, self::META_LAST_GENERATED_SLUG, $normalized );
+    }
+
+    /**
+     * Returns normalized ownership state with deterministic defaults.
+     *
+     * @param int $post_id
+     * @return array
+     */
+    private function get_slug_ownership_state( int $post_id ): array {
+        return [
+            'manual_lock' => $this->get_manual_slug_lock( $post_id ),
+            'last_generated_slug' => $this->get_last_generated_slug( $post_id ),
+        ];
+    }
+
+    /**
+     * Determine if current save request is an autosave/revision context.
+     *
+     * @param int   $post_id
+     * @param array $postarr
+     * @return bool
+     */
+    private function is_autosave_or_revision_context( int $post_id, array $postarr ): bool {
+        if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+            return true;
+        }
+
+        if ( ! empty( $postarr['post_type'] ) && 'revision' === $postarr['post_type'] ) {
+            return true;
+        }
+
+        if ( $post_id > 0 ) {
+            if ( false !== wp_is_post_autosave( $post_id ) ) {
+                return true;
+            }
+            if ( false !== wp_is_post_revision( $post_id ) ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * True only for new/default slug states where initial suggestion is allowed.
+     *
+     * @param int    $post_id
+     * @param string $incoming_slug
+     * @param string $current_db_slug
+     * @return bool
+     */
+    private function can_auto_suggest_for_slug_state( int $post_id, string $incoming_slug, string $current_db_slug ): bool {
+        if ( '' === $incoming_slug ) {
+            return true;
+        }
+
+        // Existing posts with an established slug are never auto-replaced here.
+        if ( $post_id > 0 && '' !== $current_db_slug ) {
+            return false;
+        }
+
+        return false;
+    }
+
     /** Load plugin textdomain */
     public function load_textdomain() {
         load_plugin_textdomain( 
@@ -740,41 +911,39 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
      * @return array Modified $data with our custom slug.
      */
     public function maybe_generate_slug_on_save( array $data, array $postarr ): array {
-        // Skip auto-drafts (empty titles, etc.)
-        if ( 'auto-draft' === $data['post_status'] ) {
-            return $data;
-        }
-
-        // Only run if we have a title
-        if ( empty( $data['post_title'] ) ) {
-            return $data;
-        }
-
-        // Only apply if title contains Arabic characters
-        if ( ! preg_match( '/\p{Arabic}/u', $data['post_title'] ) ) {
-            return $data;
-        }
-
-        // Fetch our regenerate flag
         $opts = get_option( self::OPTION_KEY, [] );
-        $always = ! empty( $opts['regenerate_on_change'] );
-        // If not “always regenerate” and this post already has a slug, leave it
-        if ( ! $always && ! empty( $postarr['post_name'] ) ) {
+        $method = $opts['method'] ?? 'none';
+        $post_id = isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0;
+
+        if ( 'none' === $method ) {
             return $data;
         }
 
-        // If “always” but title not changed, leave it
-        if ( $always && ! empty( $postarr['ID'] ) ) {
-            $existing = get_post( (int) $postarr['ID'] );
-            if ( $existing instanceof WP_Post && $existing->post_title === $data['post_title'] ) {
-                return $data;
+        // Never mutate ownership state or slug in autosave/revision/auto-draft contexts.
+        if ( 'auto-draft' === $data['post_status'] || $this->is_autosave_or_revision_context( $post_id, $postarr ) ) {
+            return $data;
+        }
+
+        // Only run if we have an Arabic title.
+        if ( empty( $data['post_title'] ) || ! preg_match( '/\p{Arabic}/u', $data['post_title'] ) ) {
+            return $data;
+        }
+
+        $ownership_state = $this->get_slug_ownership_state( $post_id );
+        if ( ! empty( $ownership_state['manual_lock'] ) ) {
+            return $data;
+        }
+
+        $incoming_slug = $this->normalize_slug_value( $postarr['post_name'] ?? ( $data['post_name'] ?? '' ) );
+        $current_db_slug = '';
+        if ( $post_id > 0 ) {
+            $existing = get_post( $post_id );
+            if ( $existing instanceof WP_Post ) {
+                $current_db_slug = $this->normalize_slug_value( $existing->post_name );
             }
         }
 
-        // Ok—it’s either new or title changed under “always” mode. Regenerate.
-        $method = $opts['method'] ?? 'none';
-
-        if ( 'none' === $method ) {
+        if ( ! $this->can_auto_suggest_for_slug_state( $post_id, $incoming_slug, $current_db_slug ) ) {
             return $data;
         }
 
@@ -789,7 +958,17 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
 
         // Sanitize into a slug
         // Use $data['post_name'] as fallback (in case WP already wrote something)
-        $data['post_name'] = sanitize_title( $new_slug_source, $data['post_name'], 'save' );
+        $generated_slug = sanitize_title( $new_slug_source, $data['post_name'], 'save' );
+        if ( '' === $generated_slug ) {
+            return $data;
+        }
+
+        $data['post_name'] = $generated_slug;
+
+        // Existing posts can persist tracking meta immediately; new-post persistence is handled later.
+        if ( $post_id > 0 ) {
+            $this->set_last_generated_slug( $post_id, $generated_slug );
+        }
 
         return $data;
     }
