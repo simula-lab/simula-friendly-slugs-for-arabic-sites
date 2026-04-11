@@ -11,6 +11,25 @@ Source: `docs/week1-implementation-tickets.md`
 3. `TKT-P0-W2-03` - Add manual-edit detection and lock transition logic.
 4. `TKT-P0-W2-04` - Align uniqueness filter behavior with ownership lock.
 
+## Behavior Constraints
+
+1. New posts may receive an initial friendly slug suggestion when eligible.
+2. Manual lock always blocks automatic slug replacement.
+3. Unlocked posts may auto-refresh slug on title change only when:
+   - `regenerate_on_change=1`
+   - the current slug still matches `_simula_last_generated_slug`
+4. Autosave, revision restore, and auto-draft contexts must not mutate slug or ownership state.
+5. Week 2 does not include explicit regenerate UI or pre-publish notice actions.
+
+## Execution Order
+
+1. Add centralized helpers for `_simula_slug_locked_manual` and `_simula_last_generated_slug`, including normalization rules.
+2. Refactor `maybe_generate_slug_on_save(...)` around context guards and ownership-first branching.
+3. Add manual-edit detection using incoming slug, persisted slug, and last generated slug.
+4. Reintroduce `regenerate_on_change` only for unlocked plugin-owned slugs.
+5. Align `wp_unique_post_slug` behavior so uniqueness-time generation cannot bypass manual lock.
+6. Run the required Week 2 regression set in `docs/week2-regression-coverage.md`, with `W1-04` treated as a required auto-refresh case.
+
 ## Out of Scope (deferred)
 
 - Week 3 editor UX and explicit action endpoints (`TKT-P0-W3-01..04`).

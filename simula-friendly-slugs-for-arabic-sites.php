@@ -614,6 +614,12 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             return false;
         }
 
+        // If the submitted slug already matches the plugin suggestion for this save,
+        // treat it as plugin-owned rather than a manual override.
+        if ( '' !== $generated_slug && $incoming_slug === $generated_slug ) {
+            return false;
+        }
+
         if ( '' !== $current_db_slug && $incoming_slug !== $current_db_slug ) {
             return true;
         }
@@ -828,7 +834,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
 
         add_settings_field(
             'regenerate_on_change',
-            __( 'Always regenerate slug on title change', 'simula-friendly-slugs-for-arabic-sites' ),
+            __( 'Auto-refresh plugin-owned slug on title change', 'simula-friendly-slugs-for-arabic-sites' ),
             [ $this, 'field_regenerate_on_change_html' ],
             'simula-friendly-slugs-for-arabic-sites',
             'simula_friendly_slugs_for_arabic_sites_main'
@@ -881,7 +887,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             '<label><input type="checkbox" name="%1$s[regenerate_on_change]" value="1" %2$s> %3$s</label>',
             esc_attr( self::OPTION_KEY ),
             checked( $enabled, true, false ),
-            esc_html__( 'When this is checked, updating the title will always re-build the slug.', 'simula-friendly-slugs-for-arabic-sites' )
+            esc_html__( 'When this is checked, changing the title will re-build the slug only while the current slug still matches the last plugin-generated slug.', 'simula-friendly-slugs-for-arabic-sites' )
         );
     }    
 

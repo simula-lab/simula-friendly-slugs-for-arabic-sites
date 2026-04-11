@@ -42,9 +42,9 @@ Mark each row as `PASS` / `FAIL` / `N/A` and include notes.
 
 | ID    | Status | Notes |
 | ----- | ------ | ----- |
-| W1-01 | PASS   |       |
-| W1-02 | PASS   |       |
-| W1-03 | PASS   |       |
+| W1-01 |        |       |
+| W1-02 |        |       |
+| W1-03 |        |       |
 | W1-04 |        |       |
 | W1-05 |        |       |
 | W1-06 |        |       |
