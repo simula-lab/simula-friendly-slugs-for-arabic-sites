@@ -1165,7 +1165,6 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         if ( $this->is_manual_slug_edit_detected( $incoming_slug, $current_db_slug, $last_generated_slug, $generated_slug ) ) {
-            $this->skip_unique_override_globally = true;
             if ( $post_id > 0 ) {
                 $this->set_manual_slug_lock( $post_id, true );
                 $this->mark_skip_unique_override_for_post_id( $post_id );
@@ -1173,6 +1172,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                     $this->set_last_generated_slug( $post_id, $generated_slug );
                 }
             } else {
+                $this->skip_unique_override_globally = true;
                 $this->queue_pending_slug_ownership_meta( true, '' !== $last_generated_slug ? $last_generated_slug : $generated_slug );
             }
             $data['post_name'] = $incoming_slug;
