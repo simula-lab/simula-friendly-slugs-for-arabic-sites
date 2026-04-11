@@ -7,3 +7,4 @@
 - make sure you are following the steps in https://wordpress.org/plugins/developers/
 - read the FAQ https://developer.wordpress.org/plugins/wordpress-org/plugin-developer-faq/
 - test the plugin after zipping
+- complete and attach docs/week2-regression-coverage.md for Week 2 (`W1-01, W1-02, W1-03, W1-04, W1-05, W1-06, W1-09, W1-11, W1-12, W1-13, W1-14, W1-15, W1-16`)

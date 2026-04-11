@@ -3,7 +3,7 @@
  * Plugin Name: Simula Friendly Slugs for Arabic Sites
  * Plugin URI: https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites
  * Description: Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
- * Version: 1.1.0
+ * Version: 1.2.2
  * Requires at least: 4.6
  * Requires PHP: 7.0
  * Author: Simula
@@ -345,6 +345,14 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     private $providers = [];
     /** @var array<int,bool> Request-scoped bypass map for uniqueness-stage overrides. */
     private $skip_unique_override_for_post_ids = [];
+    /** @var bool Whether we queued ownership meta for a post ID that was not known yet. */
+    private $has_pending_ownership_meta = false;
+    /** @var bool Pending manual lock value for deferred persistence. */
+    private $pending_manual_lock_value = false;
+    /** @var string Pending last-generated slug for deferred persistence. */
+    private $pending_last_generated_slug_value = '';
+    /** @var bool Request-scoped global uniqueness override bypass. */
+    private $skip_unique_override_globally = false;
 
     /** Setup WordPress hooks */
     private function __construct() {
@@ -359,6 +367,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         // Override slug on save
         add_filter( 'wp_unique_post_slug', [ $this, 'generate_friendly_slug' ], 10, 6 );
         add_filter( 'wp_insert_post_data', [ $this, 'maybe_generate_slug_on_save' ], 9, 2 );
+        add_action( 'save_post', [ $this, 'persist_pending_slug_ownership_meta' ], 20, 3 );
 
     }
 
@@ -533,24 +542,57 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     }
 
     /**
-     * True only for new/default slug states where initial suggestion is allowed.
+     * Decide whether save logic may apply a generated slug automatically.
      *
      * @param int    $post_id
      * @param string $incoming_slug
      * @param string $current_db_slug
+     * @param string $last_generated_slug
+     * @param string $new_title
+     * @param bool   $regenerate_on_change
      * @return bool
      */
-    private function can_auto_suggest_for_slug_state( int $post_id, string $incoming_slug, string $current_db_slug ): bool {
-        if ( '' === $incoming_slug ) {
-            return true;
-        }
-
-        // Existing posts with an established slug are never auto-replaced here.
-        if ( $post_id > 0 && '' !== $current_db_slug ) {
+    private function should_apply_generated_slug_on_save(
+        int $post_id,
+        string $incoming_slug,
+        string $current_db_slug,
+        string $last_generated_slug,
+        string $new_title,
+        bool $regenerate_on_change
+    ): bool {
+        // Gutenberg often submits the current slug on title-only saves.
+        // Only treat incoming slug as blocking when it diverges from the persisted/plugin-owned value.
+        if (
+            '' !== $incoming_slug &&
+            $incoming_slug !== $current_db_slug &&
+            ( '' === $last_generated_slug || $incoming_slug !== $last_generated_slug )
+        ) {
             return false;
         }
 
-        return false;
+        if ( $post_id <= 0 || '' === $current_db_slug ) {
+            return true;
+        }
+
+        if ( ! $regenerate_on_change ) {
+            return false;
+        }
+
+        $existing = get_post( $post_id );
+        if ( ! $existing instanceof WP_Post ) {
+            return false;
+        }
+
+        if ( $existing->post_title === $new_title ) {
+            return false;
+        }
+
+        // Only auto-refresh slugs we know the plugin generated previously.
+        if ( '' === $last_generated_slug ) {
+            return false;
+        }
+
+        return $current_db_slug === $last_generated_slug;
     }
 
     /**
@@ -608,6 +650,82 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
      */
     private function should_skip_unique_override_for_post_id( int $post_id ): bool {
         return $post_id > 0 && ! empty( $this->skip_unique_override_for_post_ids[ $post_id ] );
+    }
+
+    /**
+     * Resolve post ID from known save payload locations.
+     *
+     * @param array $data
+     * @param array $postarr
+     * @return int
+     */
+    private function resolve_post_id_from_save_payload( array $data, array $postarr ): int {
+        $candidates = [
+            $postarr['ID'] ?? null,
+            $postarr['id'] ?? null,
+            $postarr['post_ID'] ?? null,
+            $data['ID'] ?? null,
+        ];
+
+        if ( isset( $_POST['post_ID'] ) ) {
+            $candidates[] = wp_unslash( $_POST['post_ID'] );
+        }
+        if ( isset( $_REQUEST['post'] ) ) {
+            $candidates[] = wp_unslash( $_REQUEST['post'] );
+        }
+        if ( isset( $_GET['post'] ) ) {
+            $candidates[] = wp_unslash( $_GET['post'] );
+        }
+
+        foreach ( $candidates as $candidate ) {
+            if ( ! is_scalar( $candidate ) ) {
+                continue;
+            }
+            $post_id = absint( $candidate );
+            if ( $post_id > 0 ) {
+                return $post_id;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Queue ownership meta until a concrete post ID exists.
+     *
+     * @param bool   $manual_lock
+     * @param string $last_generated_slug
+     * @return void
+     */
+    private function queue_pending_slug_ownership_meta( bool $manual_lock, string $last_generated_slug ): void {
+        $this->has_pending_ownership_meta = true;
+        $this->pending_manual_lock_value = $manual_lock;
+        $this->pending_last_generated_slug_value = $this->normalize_slug_value( $last_generated_slug );
+    }
+
+    /**
+     * Persist queued ownership meta once save_post has a concrete post ID.
+     *
+     * @param int     $post_id
+     * @param WP_Post $post
+     * @param bool    $update
+     * @return void
+     */
+    public function persist_pending_slug_ownership_meta( $post_id, $post, $update ): void {
+        if ( ! $this->has_pending_ownership_meta ) {
+            return;
+        }
+
+        if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
+            return;
+        }
+
+        $this->set_manual_slug_lock( (int) $post_id, $this->pending_manual_lock_value );
+        $this->set_last_generated_slug( (int) $post_id, $this->pending_last_generated_slug_value );
+
+        $this->has_pending_ownership_meta = false;
+        $this->pending_manual_lock_value = false;
+        $this->pending_last_generated_slug_value = '';
     }
 
     /** Load plugin textdomain */
@@ -931,6 +1049,10 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     public function generate_friendly_slug( $override_slug, $post_ID, $post_status, $post_type, $post_parent, $original_slug ) {
         $post_id = (int) $post_ID;
 
+        if ( $this->skip_unique_override_globally ) {
+            return $override_slug;
+        }
+
         if ( $this->should_skip_unique_override_for_post_id( $post_id ) ) {
             return $override_slug;
         }
@@ -947,6 +1069,11 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
 
         $post   = get_post( $post_id );
         if ( ! $post instanceof WP_Post ) {
+            return $override_slug;
+        }
+
+        // For existing posts, never auto-replace established slugs in uniqueness stage.
+        if ( '' !== $this->normalize_slug_value( $post->post_name ) ) {
             return $override_slug;
         }
 
@@ -983,7 +1110,8 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     public function maybe_generate_slug_on_save( array $data, array $postarr ): array {
         $opts = get_option( self::OPTION_KEY, [] );
         $method = $opts['method'] ?? 'none';
-        $post_id = isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0;
+        $post_id = $this->resolve_post_id_from_save_payload( $data, $postarr );
+        $regenerate_on_change = ! empty( $opts['regenerate_on_change'] );
 
         // Never mutate ownership state or slug in autosave/revision/auto-draft contexts.
         if ( 'auto-draft' === $data['post_status'] || $this->is_autosave_or_revision_context( $post_id, $postarr ) ) {
@@ -1031,18 +1159,28 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         if ( $this->is_manual_slug_edit_detected( $incoming_slug, $current_db_slug, $last_generated_slug, $generated_slug ) ) {
+            $this->skip_unique_override_globally = true;
             if ( $post_id > 0 ) {
                 $this->set_manual_slug_lock( $post_id, true );
                 $this->mark_skip_unique_override_for_post_id( $post_id );
                 if ( '' === $last_generated_slug ) {
                     $this->set_last_generated_slug( $post_id, $generated_slug );
                 }
+            } else {
+                $this->queue_pending_slug_ownership_meta( true, '' !== $last_generated_slug ? $last_generated_slug : $generated_slug );
             }
             $data['post_name'] = $incoming_slug;
             return $data;
         }
 
-        if ( ! $this->can_auto_suggest_for_slug_state( $post_id, $incoming_slug, $current_db_slug ) ) {
+        if ( ! $this->should_apply_generated_slug_on_save(
+            $post_id,
+            $incoming_slug,
+            $current_db_slug,
+            $last_generated_slug,
+            $data['post_title'],
+            $regenerate_on_change
+        ) ) {
             return $data;
         }
 
@@ -1051,6 +1189,8 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         // Existing posts can persist tracking meta immediately; new-post persistence is handled later.
         if ( $post_id > 0 ) {
             $this->set_last_generated_slug( $post_id, $generated_slug );
+        } else {
+            $this->queue_pending_slug_ownership_meta( false, $generated_slug );
         }
 
         return $data;

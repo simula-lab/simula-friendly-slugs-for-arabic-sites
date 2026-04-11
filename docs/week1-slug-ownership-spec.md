@@ -13,8 +13,9 @@ Protect editorial intent so manually chosen slugs are never overwritten automati
 
 ### 1) Initial auto-suggestion (new posts/pages)
 
-- For new posts/pages, plugin-generated friendly slug is an initial suggestion only.
+- For new posts/pages, plugin-generated friendly slug is an initial suggestion.
 - Auto-generation is allowed when slug is empty/default and no manual lock exists.
+- If `regenerate_on_change=1`, unlocked posts may auto-refresh slug on title change only while the current slug still matches `_simula_last_generated_slug`.
 - This must not be treated as a user-forced replacement.
 
 ### 2) Manual lock after user slug edit
@@ -101,7 +102,7 @@ State A: `locked=false`, `last_generated` missing/empty
 State B: `locked=false`, `last_generated=<slug>`
 
 - Meaning: plugin suggestion exists; post is not manually locked.
-- Expected behavior: plugin may apply/update friendly slug only under allowed auto-generation rules.
+- Expected behavior: plugin may apply/update friendly slug only under allowed auto-generation rules, including `regenerate_on_change` refreshes while the current slug remains plugin-owned.
 
 State C: `locked=true`, `last_generated=<slug|empty>`
 
@@ -196,7 +197,7 @@ Decision priority (apply top to bottom):
 1. If event is autosave/revision/auto-draft -> never mutate slug ownership state.
 2. If manual lock is `true` -> never auto-replace slug.
 3. If explicit user action requests regenerate/use-friendly -> allow replacement and update tracking meta.
-4. Otherwise, allow only initial-suggestion behavior for eligible new/default slug states.
+4. Otherwise, allow initial-suggestion behavior for eligible new/default slug states, plus unlocked auto-refresh when `regenerate_on_change=1` and the current slug still matches `_simula_last_generated_slug`.
 
 ### Context A: New draft creation
 
@@ -225,8 +226,9 @@ Rule:
 
 - If manual lock is `true`: keep current slug unchanged.
 - If manual lock is `false` and no explicit action:
-  - do not force-replace existing non-default slug;
-  - may refresh `_simula_last_generated_slug` for comparison only.
+  - do not force-replace existing non-default manual slug;
+  - may auto-refresh slug on title change when `regenerate_on_change=1` and current slug still equals `_simula_last_generated_slug`;
+  - otherwise may refresh `_simula_last_generated_slug` for comparison only.
 - If explicit regenerate/use-friendly action is present:
   - replace slug with generated slug;
   - set lock to `false`;
@@ -245,8 +247,9 @@ Rule:
 
 Rule:
 
-- Never auto-overwrite slug solely because post is updated.
+- Never auto-overwrite a manual-owned slug solely because post is updated.
 - Title change alone must not replace slug when manual lock is `true`.
+- If manual lock is `false` and `regenerate_on_change=1`, plugin-owned slugs may still auto-refresh on title change.
 - Explicit regenerate/use-friendly remains the only valid replacement path.
 
 ### Context E: Quick Edit / Inline Edit
@@ -361,7 +364,7 @@ User manual edit is detected when either condition is true:
 5. No manual edit detected:
 
 - Keep existing lock state (typically false for unlocked flow).
-- Continue normal eligibility checks for initial suggestion behavior only.
+- Continue normal eligibility checks for initial suggestion or unlocked `regenerate_on_change` refresh behavior.
 
 ### Edge-case handling
 
@@ -441,7 +444,8 @@ If any check fails:
 
 - Lock reset is allowed only inside successful explicit action path.
 - Failed regenerate/use attempts must leave lock unchanged.
-- Passive saves, title changes, autosave, and publish transitions must never clear lock.
+- Passive saves, autosave, and publish transitions must never clear lock.
+- Title changes may auto-refresh slug only while the post remains unlocked and plugin-owned.
 
 ### Failure and fallback behavior
 
@@ -737,6 +741,7 @@ Week 2 kickoff gate is passed based on approved and unambiguous Week 1 artifacts
 
 - Manual slug edits are never overwritten automatically after intent is detected.
 - New posts still receive friendly initial suggestion behavior.
+- Unlocked plugin-owned slugs may auto-refresh on title change when `regenerate_on_change=1`.
 - Regeneration is always explicit.
 - Behavior must be consistent across post/page flow and not rely on fragile editor-only assumptions.
 

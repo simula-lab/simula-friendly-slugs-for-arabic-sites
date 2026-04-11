@@ -57,7 +57,8 @@ Current behavior can overwrite user intent when users manually edit `post_name`.
 
 - Impact: major editorial UX issue; users lose explicit slug decisions
 - Required behavior:
-  - For new posts/pages: auto-generate plugin slug only as an initial suggestion
+  - For new posts/pages: auto-generate plugin slug as an initial suggestion
+  - For unlocked posts with `regenerate_on_change=1`: auto-refresh slug on title change only while current slug still matches the last plugin-generated slug
   - For manual user edits: once user changes slug manually, mark post as “manual slug chosen”
   - After manual choice: plugin must stop auto-overwriting that slug
   - For explicit regeneration: provide UI action (`Generate friendly slug` / `Regenerate plugin slug`) that intentionally replaces current slug
@@ -73,8 +74,9 @@ Current behavior can overwrite user intent when users manually edit `post_name`.
    - `_simula_slug_locked_manual` (bool): user chose manual slug
    - `_simula_last_generated_slug` (string): latest plugin-generated slug
 2. Update save flow logic
-   - In `maybe_generate_slug_on_save()`, skip auto-generation when manual lock is true
-   - Auto-generate only when slug is empty/default or when explicit regenerate action is requested
+  - In `maybe_generate_slug_on_save()`, skip auto-generation when manual lock is true
+  - Auto-generate when slug is empty/default
+  - If `regenerate_on_change=1`, allow auto-refresh on title change only for unlocked posts whose current slug still matches `_simula_last_generated_slug`
 3. Detect manual edits
    - On save, compare incoming slug vs plugin-generated suggestion and previous stored values
    - If user changed slug explicitly, set manual lock
