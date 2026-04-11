@@ -343,6 +343,8 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     private static $instance;
     /** @var Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Interface[] */
     private $providers = [];
+    /** @var array<int,bool> Request-scoped bypass map for uniqueness-stage overrides. */
+    private $skip_unique_override_for_post_ids = [];
 
     /** Setup WordPress hooks */
     private function __construct() {
@@ -549,6 +551,63 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         return false;
+    }
+
+    /**
+     * Detect explicit manual slug divergence in the current save request.
+     *
+     * @param string $incoming_slug
+     * @param string $current_db_slug
+     * @param string $last_generated_slug
+     * @param string $generated_slug
+     * @return bool
+     */
+    private function is_manual_slug_edit_detected(
+        string $incoming_slug,
+        string $current_db_slug,
+        string $last_generated_slug,
+        string $generated_slug
+    ): bool {
+        if ( '' === $incoming_slug ) {
+            return false;
+        }
+
+        if ( '' !== $current_db_slug && $incoming_slug !== $current_db_slug ) {
+            return true;
+        }
+
+        if ( '' !== $last_generated_slug && $incoming_slug !== $last_generated_slug ) {
+            return true;
+        }
+
+        // First-save/manual-entry fallback when no comparison baseline exists yet.
+        if ( '' === $current_db_slug && '' === $last_generated_slug && '' !== $generated_slug && $incoming_slug !== $generated_slug ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Mark a post to bypass uniqueness-stage friendly override in this request.
+     *
+     * @param int $post_id
+     * @return void
+     */
+    private function mark_skip_unique_override_for_post_id( int $post_id ): void {
+        if ( $post_id > 0 ) {
+            $this->skip_unique_override_for_post_ids[ $post_id ] = true;
+        }
+    }
+
+    /**
+     * Whether uniqueness-stage override should be skipped in this request.
+     *
+     * @param int $post_id
+     * @return bool
+     */
+    private function should_skip_unique_override_for_post_id( int $post_id ): bool {
+        return $post_id > 0 && ! empty( $this->skip_unique_override_for_post_ids[ $post_id ] );
     }
 
     /** Load plugin textdomain */
@@ -870,12 +929,23 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     }
 
     public function generate_friendly_slug( $override_slug, $post_ID, $post_status, $post_type, $post_parent, $original_slug ) {
+        $post_id = (int) $post_ID;
+
+        if ( $this->should_skip_unique_override_for_post_id( $post_id ) ) {
+            return $override_slug;
+        }
+
+        // Ownership-first guard: never replace a manually-owned slug automatically.
+        if ( $post_id > 0 && $this->get_manual_slug_lock( $post_id ) ) {
+            return $override_slug;
+        }
+
         $method = ( get_option( self::OPTION_KEY, [] )['method'] ?? 'none' );
         if ( 'none' === $method  ) {
             return $override_slug;
         }
 
-        $post   = get_post( $post_ID );
+        $post   = get_post( $post_id );
         if ( ! $post instanceof WP_Post ) {
             return $override_slug;
         }
@@ -915,22 +985,22 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         $method = $opts['method'] ?? 'none';
         $post_id = isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0;
 
-        if ( 'none' === $method ) {
-            return $data;
-        }
-
         // Never mutate ownership state or slug in autosave/revision/auto-draft contexts.
         if ( 'auto-draft' === $data['post_status'] || $this->is_autosave_or_revision_context( $post_id, $postarr ) ) {
             return $data;
         }
 
-        // Only run if we have an Arabic title.
-        if ( empty( $data['post_title'] ) || ! preg_match( '/\p{Arabic}/u', $data['post_title'] ) ) {
+        $ownership_state = $this->get_slug_ownership_state( $post_id );
+        if ( ! empty( $ownership_state['manual_lock'] ) ) {
             return $data;
         }
 
-        $ownership_state = $this->get_slug_ownership_state( $post_id );
-        if ( ! empty( $ownership_state['manual_lock'] ) ) {
+        if ( 'none' === $method ) {
+            return $data;
+        }
+
+        // Only run if we have an Arabic title.
+        if ( empty( $data['post_title'] ) || ! preg_match( '/\p{Arabic}/u', $data['post_title'] ) ) {
             return $data;
         }
 
@@ -942,10 +1012,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 $current_db_slug = $this->normalize_slug_value( $existing->post_name );
             }
         }
-
-        if ( ! $this->can_auto_suggest_for_slug_state( $post_id, $incoming_slug, $current_db_slug ) ) {
-            return $data;
-        }
+        $last_generated_slug = $ownership_state['last_generated_slug'] ?? '';
 
         // Build converter method name, e.g. "convert_translation"
         $converter = "convert_{$method}";
@@ -960,6 +1027,22 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         // Use $data['post_name'] as fallback (in case WP already wrote something)
         $generated_slug = sanitize_title( $new_slug_source, $data['post_name'], 'save' );
         if ( '' === $generated_slug ) {
+            return $data;
+        }
+
+        if ( $this->is_manual_slug_edit_detected( $incoming_slug, $current_db_slug, $last_generated_slug, $generated_slug ) ) {
+            if ( $post_id > 0 ) {
+                $this->set_manual_slug_lock( $post_id, true );
+                $this->mark_skip_unique_override_for_post_id( $post_id );
+                if ( '' === $last_generated_slug ) {
+                    $this->set_last_generated_slug( $post_id, $generated_slug );
+                }
+            }
+            $data['post_name'] = $incoming_slug;
+            return $data;
+        }
+
+        if ( ! $this->can_auto_suggest_for_slug_state( $post_id, $incoming_slug, $current_db_slug ) ) {
             return $data;
         }
 
