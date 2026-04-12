@@ -14,7 +14,7 @@ Verify the new Week 3 user-facing slug ownership flow in real WordPress editor s
 
 1. Explicit slug actions work correctly.
 2. Divergence notices appear only when intended.
-3. Manual ownership is preserved unless the user explicitly chooses a plugin action.
+3. `Keep current slug` acknowledges the current divergence and suppresses the same warning until the plugin suggestion changes again.
 4. Classic and Block editors behave the same for matching scenarios.
 
 ## Test Environment
@@ -49,6 +49,14 @@ For each test:
    - whether the notice disappears or remains
    - whether future normal saves preserve the expected ownership behavior
 
+Current Week 3 UI note:
+
+1. The divergence notice now exposes only:
+   - `Keep current slug`
+   - `Use friendly slug`
+2. `Regenerate friendly slug` is no longer shown in the notice because it duplicates the primary decision flow.
+3. If a separate regenerate control is not present in the UI you are testing, mark regenerate-specific scenarios as `DEFERRED`.
+
 ## Scenarios
 
 ### W1-07 Block first publish transition using `Use friendly slug`
@@ -77,15 +85,20 @@ Expected:
 Expected:
 
 1. Current manual slug remains unchanged.
-2. A success notice is shown.
-3. Reloading the editor does not auto-replace the slug.
-4. Changing the title later without explicit action still preserves the manual slug.
+2. The action should not force a full page navigation.
+3. A success notice is shown.
+4. The yellow divergence warning disappears for the current suggestion.
+5. Reloading the editor does not auto-replace the slug.
+6. Changing the title later without explicit action still preserves the manual slug.
+7. If the title changes enough to produce a different plugin suggestion later, the warning may reappear.
 
 ### W1-10 Classic explicit regenerate on existing post
 
+Run this only if a dedicated regenerate control exists in the UI being tested.
+
 1. Open an existing Classic-editor post with Arabic title.
 2. Ensure the current slug differs from the newest plugin suggestion or title-derived result.
-3. Click `Regenerate friendly slug`.
+3. Trigger the dedicated regenerate control.
 4. Save or reload the post screen.
 
 Expected:
@@ -94,11 +107,15 @@ Expected:
 2. A success notice is shown.
 3. Divergence notice is gone after reload if current slug now matches suggestion.
 
+If no dedicated regenerate control exists, record `DEFERRED` and note that regenerate remains backend-supported but is not exposed in the current notice UI.
+
 ### W1-17 Block explicit regenerate security with invalid nonce
 
+Run this only if a dedicated regenerate entry point is exposed in the UI being tested.
+
 1. Open Gutenberg on a qualifying post.
-2. Copy the `Regenerate friendly slug` action URL if visible.
-3. Modify or remove the nonce parameter in the URL manually.
+2. Copy the regenerate action URL if visible.
+3. Modify or remove the nonce parameter manually.
 4. Open the tampered URL in the browser.
 
 Expected:
@@ -107,10 +124,14 @@ Expected:
 2. Slug remains unchanged.
 3. No ownership/meta behavior changes are observed afterward.
 
+If no regenerate entry point is exposed, record `DEFERRED`.
+
 ### W1-18 Classic explicit regenerate security with insufficient capability
 
+Run this only if a dedicated regenerate entry point is exposed in the UI being tested.
+
 1. Log in as a user who cannot edit the target post, if available.
-2. Attempt to open a valid explicit action URL for regenerate or use-friendly.
+2. Attempt to open a valid explicit action URL for regenerate.
 
 Expected:
 
@@ -118,7 +139,7 @@ Expected:
 2. Slug remains unchanged.
 3. No ownership/meta behavior changes occur.
 
-If lower-privilege testing is not available, mark this scenario as deferred.
+If lower-privilege testing is not available, or if no regenerate entry point is exposed, mark this scenario as deferred.
 
 ### W1-19 Block pre-publish notice visibility when divergence exists
 
@@ -132,7 +153,6 @@ Expected:
 2. Notice includes:
    - `Keep current slug`
    - `Use friendly slug`
-   - `Regenerate friendly slug`
 
 ### W1-20 Block pre-publish notice suppression when slug matches suggestion
 
@@ -150,7 +170,7 @@ Expected:
 1. Switch method to `translation`.
 2. Use invalid provider credentials or otherwise force translation failure.
 3. Open a Classic-editor post with Arabic title.
-4. Trigger `Use friendly slug` or `Regenerate friendly slug`.
+4. Trigger `Use friendly slug`.
 
 Expected:
 
@@ -161,7 +181,7 @@ Expected:
 ### W1-22 Block empty generation result during explicit action
 
 1. Use a title/setup that causes generation to sanitize to an empty result, if reproducible.
-2. Open Gutenberg and trigger `Use friendly slug` or `Regenerate friendly slug`.
+2. Open Gutenberg and trigger `Use friendly slug`.
 
 Expected:
 
@@ -178,8 +198,9 @@ After the main scenarios, confirm:
 1. The same divergence condition produces a notice in both editors.
 2. `Keep current slug` preserves manual ownership in both editors.
 3. `Use friendly slug` applies the plugin suggestion in both editors.
-4. `Regenerate friendly slug` behaves as an explicit action in both editors.
+4. `Keep current slug` removes the current warning without forced navigation in both editors.
 5. Classic notices do not appear on Gutenberg screens.
+6. If regenerate is exposed elsewhere, verify it behaves as an explicit action and not as a passive save side effect.
 
 ## Evidence To Record
 
