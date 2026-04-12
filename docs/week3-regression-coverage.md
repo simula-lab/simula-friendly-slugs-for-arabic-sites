@@ -16,8 +16,8 @@ Track execution of Week 3 regression scenarios mapped from `docs/week1-test-matr
 ## Environment Baseline
 
 - WordPress: not executed in this workspace
-- PHP: not executed for Week 3 in this document yet
-- Editor contexts exercised: pending
+- PHP: `php -l simula-friendly-slugs-for-arabic-sites.php` passes
+- Editor contexts exercised: static code review only in this workspace; Classic/Block browser QA still pending
 - Depends on Week 2 baseline in `docs/week2-regression-coverage.md`
 
 ## Required Scenario Set (Week 3)
@@ -46,17 +46,17 @@ These checks confirm that the same logical outcome is preserved across editor su
 
 Mark each row as `PASS` / `FAIL` / `N/A` and include notes.
 
-| ID    | Status | Notes |
-| ----- | ------ | ----- |
-| W1-07 | N/A    |       |
-| W1-08 | N/A    |       |
-| W1-10 | N/A    |       |
-| W1-17 | N/A    |       |
-| W1-18 | N/A    |       |
-| W1-19 | N/A    |       |
-| W1-20 | N/A    |       |
-| W1-21 | N/A    |       |
-| W1-22 | N/A    |       |
+| ID    | Status | Notes                                                                                                                                                                                                                                      |
+| ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| W1-07 | FAIL   | Static code review: explicit `Use friendly slug` action applies generated slug via shared handler and clears manual lock. Manual Block editor publish QA still pending.                                                                    |
+| W1-08 |        | Static code review: explicit `Keep current slug` action preserves current slug, sets lock `true`, and now preserves `_simula_last_generated_slug` instead of overwriting it with the manual slug. Manual Classic publish QA still pending. |
+| W1-10 |        | Static code review: explicit regenerate path is user-triggered, applies generated slug on success, and sets lock `false`. Manual Classic editor QA still pending.                                                                          |
+| W1-17 |        | Static code review: invalid nonce is rejected by `check_admin_referer(...)` before any slug/meta mutation path runs. Manual Block editor verification still pending.                                                                       |
+| W1-18 |        | Static code review: insufficient capability is rejected by `current_user_can( 'edit_post', $post_id )` before mutation. Manual Classic editor verification still pending.                                                                  |
+| W1-19 |        | Static code review: Block editor notice is driven by shared divergence state and shown only when `should_show_notice=true`. Browser-level Gutenberg rendering still pending.                                                               |
+| W1-20 |        | Static code review: divergence notice is suppressed when current slug matches the generated suggestion or when no valid suggestion exists. Browser-level Gutenberg rendering still pending.                                                |
+| W1-21 |        | Static code review: explicit action failure to produce a valid slug redirects with `generation_failed` and does not mutate slug/meta. End-to-end provider failure QA still pending.                                                        |
+| W1-22 |        | Static code review: empty generation result exits through failure status and leaves current slug unchanged. Browser-level Block editor verification still pending.                                                                         |
 
 ## Meta Assertions (must hold)
 
@@ -71,14 +71,18 @@ For all applicable scenarios, verify:
 
 ## Workspace Verification Completed
 
-Pending.
+1. `php -l simula-friendly-slugs-for-arabic-sites.php` passed after Week 3 backend/UI integration edits.
+2. Static review confirmed both Classic and Block editor notices consume the same divergence-state helper.
+3. Static review confirmed explicit slug actions use one shared backend handler with nonce and capability enforcement.
+4. Week 3 review fix: `Keep current slug` no longer overwrites `_simula_last_generated_slug` with the manual slug.
+5. Week 3 review fix: Classic admin notices are now suppressed on Block editor screens to avoid mixed-surface duplication.
 
-Suggested checks once implementation exists:
+Still required outside this workspace:
 
-1. `php -l simula-friendly-slugs-for-arabic-sites.php`
-2. Manual QA in Block editor
-3. Manual QA in Classic editor
-4. Confirmation that Quick Edit behavior from Week 2 still passes
+1. Manual QA in Block editor
+2. Manual QA in Classic editor
+3. Confirmation that Quick Edit behavior from Week 2 still passes
+4. End-to-end translation-provider failure QA
 
 ## Week 3 Pass Criteria
 
@@ -92,4 +96,5 @@ Week 3 regression coverage passes only when:
 
 Current status:
 
-- Not executed yet.
+- Week 3 static code review coverage passed for the mapped scenarios above.
+- Browser-level WordPress QA remains pending.
