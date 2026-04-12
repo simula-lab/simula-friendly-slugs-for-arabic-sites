@@ -369,6 +369,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         add_action( 'admin_init', [ $this, 'register_settings' ] );
         add_action( 'admin_post_simula_slug_action', [ $this, 'handle_explicit_slug_action' ] );
         add_action( 'admin_notices', [ $this, 'render_classic_editor_slug_notices' ] );
+        add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_block_editor_slug_notices' ] );
 
         // Override slug on save
         add_filter( 'wp_unique_post_slug', [ $this, 'generate_friendly_slug' ], 10, 6 );
@@ -875,6 +876,47 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     }
 
     /**
+     * Return a renderable message configuration for slug action status.
+     *
+     * @param string $status
+     * @return array|null
+     */
+    private function get_slug_action_status_message( string $status ): ?array {
+        $messages = [
+            'kept_current' => [
+                'type' => 'success',
+                'text' => __( 'Current slug kept. Manual slug ownership is now locked.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ],
+            'used_friendly' => [
+                'type' => 'success',
+                'text' => __( 'Friendly slug applied successfully.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ],
+            'regenerated' => [
+                'type' => 'success',
+                'text' => __( 'Friendly slug regenerated successfully.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ],
+            'keep_failed' => [
+                'type' => 'error',
+                'text' => __( 'Could not keep the current slug.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ],
+            'use_friendly_failed' => [
+                'type' => 'error',
+                'text' => __( 'Could not apply the friendly slug.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ],
+            'regenerate_failed' => [
+                'type' => 'error',
+                'text' => __( 'Could not regenerate the friendly slug.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ],
+            'generation_failed' => [
+                'type' => 'error',
+                'text' => __( 'No valid friendly slug could be generated for this title.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ],
+        ];
+
+        return $messages[ $status ] ?? null;
+    }
+
+    /**
      * Whether the current admin screen is a classic post editor surface.
      *
      * @return bool
@@ -910,6 +952,62 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     }
 
     /**
+     * Enqueue Gutenberg notice integration using the shared divergence state.
+     *
+     * @return void
+     */
+    public function enqueue_block_editor_slug_notices(): void {
+        if ( ! function_exists( 'get_current_screen' ) ) {
+            return;
+        }
+
+        $screen = get_current_screen();
+        if ( ! $screen || empty( $screen->is_block_editor() ) ) {
+            return;
+        }
+
+        $post_id = $this->get_current_admin_post_id();
+        if ( $post_id <= 0 ) {
+            return;
+        }
+
+        $asset_path = plugin_dir_path( __FILE__ ) . 'assets/block-editor-slug-notice.js';
+        if ( ! file_exists( $asset_path ) ) {
+            return;
+        }
+
+        wp_enqueue_script(
+            'simula-friendly-slugs-block-editor',
+            plugin_dir_url( __FILE__ ) . 'assets/block-editor-slug-notice.js',
+            [ 'wp-data', 'wp-dom-ready', 'wp-i18n' ],
+            (string) filemtime( $asset_path ),
+            true
+        );
+
+        $status = isset( $_GET['simula_slug_action_status'] ) ? sanitize_key( wp_unslash( $_GET['simula_slug_action_status'] ) ) : '';
+        wp_localize_script(
+            'simula-friendly-slugs-block-editor',
+            'simulaFriendlySlugsBlockEditor',
+            [
+                'divergence' => $this->get_slug_divergence_state( $post_id ),
+                'status' => $status,
+                'statusMessage' => '' !== $status ? $this->get_slug_action_status_message( $status ) : null,
+                'noticeId' => 'simula-friendly-slugs-divergence-notice',
+                'statusNoticeId' => 'simula-friendly-slugs-status-notice',
+                'labels' => [
+                    'title' => __( 'Friendly slug differs from the current slug.', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'body' => __( 'Choose whether to keep the current slug or apply the plugin suggestion.', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'current' => __( 'Current slug:', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'suggested' => __( 'Suggested slug:', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'keep' => __( 'Keep current slug', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'useFriendly' => __( 'Use friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'regenerate' => __( 'Regenerate friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
+                ],
+            ]
+        );
+    }
+
+    /**
      * Render feedback and divergence notices on Classic editor screens.
      *
      * @return void
@@ -939,42 +1037,11 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         $status = sanitize_key( wp_unslash( $_GET['simula_slug_action_status'] ) );
-        $messages = [
-            'kept_current' => [
-                'type' => 'success',
-                'text' => __( 'Current slug kept. Manual slug ownership is now locked.', 'simula-friendly-slugs-for-arabic-sites' ),
-            ],
-            'used_friendly' => [
-                'type' => 'success',
-                'text' => __( 'Friendly slug applied successfully.', 'simula-friendly-slugs-for-arabic-sites' ),
-            ],
-            'regenerated' => [
-                'type' => 'success',
-                'text' => __( 'Friendly slug regenerated successfully.', 'simula-friendly-slugs-for-arabic-sites' ),
-            ],
-            'keep_failed' => [
-                'type' => 'error',
-                'text' => __( 'Could not keep the current slug.', 'simula-friendly-slugs-for-arabic-sites' ),
-            ],
-            'use_friendly_failed' => [
-                'type' => 'error',
-                'text' => __( 'Could not apply the friendly slug.', 'simula-friendly-slugs-for-arabic-sites' ),
-            ],
-            'regenerate_failed' => [
-                'type' => 'error',
-                'text' => __( 'Could not regenerate the friendly slug.', 'simula-friendly-slugs-for-arabic-sites' ),
-            ],
-            'generation_failed' => [
-                'type' => 'error',
-                'text' => __( 'No valid friendly slug could be generated for this title.', 'simula-friendly-slugs-for-arabic-sites' ),
-            ],
-        ];
-
-        if ( empty( $messages[ $status ] ) ) {
+        $message = $this->get_slug_action_status_message( $status );
+        if ( empty( $message ) ) {
             return;
         }
 
-        $message = $messages[ $status ];
         printf(
             '<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
             esc_attr( $message['type'] ),
