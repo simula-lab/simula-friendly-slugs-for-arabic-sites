@@ -525,7 +525,23 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             return true;
         }
 
+        if ( isset( $_REQUEST['action'] ) && 'heartbeat' === sanitize_key( wp_unslash( $_REQUEST['action'] ) ) ) {
+            return true;
+        }
+
+        if ( defined( 'REST_REQUEST' ) && REST_REQUEST && isset( $_SERVER['REQUEST_URI'] ) ) {
+            $request_uri = wp_unslash( $_SERVER['REQUEST_URI'] );
+            if ( is_string( $request_uri ) && false !== strpos( $request_uri, '/autosaves' ) ) {
+                return true;
+            }
+        }
+
         if ( ! empty( $postarr['post_type'] ) && 'revision' === $postarr['post_type'] ) {
+            return true;
+        }
+
+        $submitted_slug = $this->normalize_slug_value( $postarr['post_name'] ?? '' );
+        if ( '' !== $submitted_slug && preg_match( '/-autosave-v\d+$/', $submitted_slug ) ) {
             return true;
         }
 
