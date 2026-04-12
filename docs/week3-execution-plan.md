@@ -14,18 +14,25 @@ Source documents:
 
 Complete the P0 user-facing slug ownership flow by adding explicit friendly-slug actions, divergence notices, and cross-editor validation without weakening the Week 2 ownership protections.
 
+Implementation note:
+
+- The final Week 3 notice UI exposes two actions only:
+  - `Keep current slug`
+  - `Use friendly slug`
+- `regenerate_friendly_slug` remains supported in backend action handling, but it is not shown in the divergence notice because it duplicates the outcome of `Use friendly slug` for this flow.
+
 ## Scope Lock
 
 ### In Scope
 
 1. Explicit actions for:
-   - `Generate/Regenerate friendly slug`
    - `Use friendly slug`
    - `Keep current slug`
-2. Divergence detection between current slug and plugin suggestion.
-3. Non-blocking notice shown only when divergence conditions are met.
-4. Block editor and Classic editor behavior parity.
-5. Regression coverage for Week 3 P0 scenarios.
+2. Backend support for `regenerate_friendly_slug` remains available for future dedicated UI exposure.
+3. Divergence detection between current slug and plugin suggestion.
+4. Non-blocking notice shown only when divergence conditions are met.
+5. Block editor and Classic editor behavior parity.
+6. Regression coverage for Week 3 P0 scenarios.
 
 ### Out of Scope
 
@@ -121,7 +128,11 @@ The notice must expose:
 1. `Keep current slug`
 2. `Use friendly slug`
 
-Optional regenerate control may be separate, but it must remain explicit and user-triggered.
+Final Week 3 behavior:
+
+1. `Keep current slug` should run without forcing a page navigation.
+2. `Keep current slug` should acknowledge the current divergence and suppress the same warning until the plugin suggestion changes again.
+3. `Use friendly slug` may complete through an explicit action path, but the notice should not show a redundant `Regenerate friendly slug` button.
 
 ### 7. Implement `Keep current slug`
 
@@ -130,6 +141,8 @@ This action must:
 1. preserve the current slug
 2. set or keep `_simula_slug_locked_manual=true`
 3. avoid any automatic replacement side effect
+4. suppress the current divergence notice after acknowledgement until the suggested plugin slug changes again
+5. avoid a full page reload in the editor UX
 
 ### 8. Implement `Use friendly slug`
 
@@ -148,6 +161,11 @@ This action must:
 3. clear manual lock only on success
 4. leave slug and lock unchanged on failure
 
+Current Week 3 outcome:
+
+- regenerate remains implemented at the backend/action layer
+- regenerate is not surfaced in the divergence notice because `Use friendly slug` already covers the primary Week 3 decision
+
 ### 10. Validate editor parity
 
 Confirm that Block and Classic editors produce equivalent behavior for:
@@ -155,8 +173,9 @@ Confirm that Block and Classic editors produce equivalent behavior for:
 1. divergence notice visibility
 2. keep-current action
 3. use-friendly action
-4. explicit regenerate action
+4. acknowledgement-driven notice suppression after `Keep current slug`
 5. locked-slug protection during normal saves
+6. any separately exposed regenerate action, if added later
 
 ### 11. Execute Week 3 regression coverage
 
@@ -187,5 +206,6 @@ Week 3 is complete only when all of the following are true:
 1. Explicit regenerate/use-friendly/keep-current actions work with proper security checks.
 2. Divergence notice appears only under the intended conditions.
 3. Manual ownership is preserved unless the user explicitly chooses a plugin action.
-4. Block and Classic editors are behaviorally equivalent for the mapped Week 3 cases.
-5. The Week 3 regression checklist is documented and all required scenarios are passing or explicitly deferred with reason.
+4. `Keep current slug` acknowledges the current divergence and removes the warning without a forced page navigation.
+5. Block and Classic editors are behaviorally equivalent for the mapped Week 3 cases.
+6. The Week 3 regression checklist is documented and all required scenarios are passing or explicitly deferred with reason.

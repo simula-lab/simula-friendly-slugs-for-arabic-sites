@@ -14,16 +14,26 @@
 	var lastIsSavingPost = false;
 	var lastKnownStateKey = '';
 	var inflightRequest = null;
+	var refreshTimers = [];
 
 	function removeDivergenceNotice() {
 		notices.removeNotice( config.noticeId );
 		lastKnownStateKey = '';
 	}
 
+	function clearScheduledRefreshes() {
+		refreshTimers.forEach( function( timerId ) {
+			window.clearTimeout( timerId );
+		} );
+		refreshTimers = [];
+	}
+
 	function buildAction( label, url ) {
 		return {
 			label: label,
-			url: url,
+			onClick: function() {
+				runSlugAction( url );
+			},
 		};
 	}
 
@@ -63,9 +73,8 @@
 				actions: [
 					buildAction( labels.keep || 'Keep current slug', actionUrls.keep_current_slug ),
 					buildAction( labels.useFriendly || 'Use friendly slug', actionUrls.use_friendly_slug ),
-					buildAction( labels.regenerate || 'Regenerate friendly slug', actionUrls.regenerate_friendly_slug ),
 				].filter( function( action ) {
-					return !! action.url;
+					return typeof action.onClick === 'function';
 				} ),
 			}
 		);
@@ -126,6 +135,71 @@
 			} );
 	}
 
+	function runSlugAction( actionUrl ) {
+		var url = new window.URL( actionUrl, window.location.origin );
+		var postId = url.searchParams.get( 'post_id' ) || url.searchParams.get( 'post' ) || '';
+		var actionName = url.searchParams.get( 'simula_slug_action' ) || '';
+		if ( ! postId || ! actionName ) {
+			return;
+		}
+
+		var body = new window.URLSearchParams();
+		body.append( 'action', config.runActionAjaxAction );
+		body.append( 'nonce', config.ajaxNonce );
+		body.append( 'post_id', postId );
+		body.append( 'simula_slug_action', actionName );
+
+		window.fetch( config.ajaxUrl, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+			},
+			body: body.toString(),
+		} )
+			.then( function( response ) {
+				return response.json();
+			} )
+			.then( function( payload ) {
+				if ( ! payload || ! payload.success || ! payload.data ) {
+					return;
+				}
+
+				if ( payload.data.message && payload.data.message.text ) {
+					notices.createNotice(
+						payload.data.message.type || 'success',
+						payload.data.message.text,
+						{
+							id: config.statusNoticeId,
+							isDismissible: true,
+						}
+					);
+				}
+
+				if ( payload.data.divergence && ! payload.data.divergence.should_show_notice ) {
+					removeDivergenceNotice();
+					return;
+				}
+
+				scheduleRefreshBurst( postId );
+			} );
+	}
+
+	function scheduleRefreshBurst( postId ) {
+		if ( ! postId ) {
+			return;
+		}
+
+		clearScheduledRefreshes();
+		[ 0, 250, 800, 1500 ].forEach( function( delay ) {
+			refreshTimers.push(
+				window.setTimeout( function() {
+					fetchDivergenceState( postId );
+				}, delay )
+			);
+		} );
+	}
+
 	function refreshFromEditorState() {
 		var editor = select( editorStore );
 		if ( ! editor ) {
@@ -138,11 +212,11 @@
 
 		if ( postId && postId !== lastPostId ) {
 			lastPostId = postId;
-			fetchDivergenceState( postId );
+			scheduleRefreshBurst( postId );
 		}
 
 		if ( lastIsSavingPost && ! isSavingPost && ! isAutosavingPost && postId ) {
-			fetchDivergenceState( postId );
+			scheduleRefreshBurst( postId );
 		}
 
 		lastIsSavingPost = isSavingPost;
@@ -152,7 +226,7 @@
 		renderStatusNotice();
 		if ( config.initialPostId ) {
 			lastPostId = config.initialPostId;
-			fetchDivergenceState( config.initialPostId );
+			scheduleRefreshBurst( config.initialPostId );
 		}
 
 		refreshFromEditorState();

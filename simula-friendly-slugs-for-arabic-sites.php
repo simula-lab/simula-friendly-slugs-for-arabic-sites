@@ -339,6 +339,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     const OPTION_KEY  = 'simula_friendly_slugs_for_arabic_sites_options';
     const META_SLUG_LOCKED_MANUAL = '_simula_slug_locked_manual';
     const META_LAST_GENERATED_SLUG = '_simula_last_generated_slug';
+    const META_ACKNOWLEDGED_DIVERGENT_SUGGESTION = '_simula_acknowledged_divergent_suggestion';
     const ACTION_NONCE = 'simula_slug_action';
     const AJAX_NONCE = 'simula_slug_editor_state';
     const ACTION_REGENERATE = 'regenerate_friendly_slug';
@@ -371,7 +372,9 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         add_action( 'admin_post_simula_slug_action', [ $this, 'handle_explicit_slug_action' ] );
         add_action( 'admin_notices', [ $this, 'render_classic_editor_slug_notices' ] );
         add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_block_editor_slug_notices' ] );
+        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_classic_editor_slug_actions' ] );
         add_action( 'wp_ajax_simula_get_slug_divergence_state', [ $this, 'ajax_get_slug_divergence_state' ] );
+        add_action( 'wp_ajax_simula_run_slug_action', [ $this, 'ajax_run_slug_action' ] );
 
         // Override slug on save
         add_filter( 'wp_unique_post_slug', [ $this, 'generate_friendly_slug' ], 10, 6 );
@@ -507,6 +510,43 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         update_post_meta( $post_id, self::META_LAST_GENERATED_SLUG, $normalized );
+    }
+
+    /**
+     * Read the acknowledged divergent suggestion for notice suppression.
+     *
+     * @param int $post_id
+     * @return string
+     */
+    private function get_acknowledged_divergent_suggestion( int $post_id ): string {
+        if ( $post_id <= 0 ) {
+            return '';
+        }
+
+        return $this->normalize_slug_value(
+            get_post_meta( $post_id, self::META_ACKNOWLEDGED_DIVERGENT_SUGGESTION, true )
+        );
+    }
+
+    /**
+     * Persist or clear the acknowledged divergent suggestion.
+     *
+     * @param int    $post_id
+     * @param string $slug
+     * @return void
+     */
+    private function set_acknowledged_divergent_suggestion( int $post_id, string $slug ): void {
+        if ( $post_id <= 0 ) {
+            return;
+        }
+
+        $normalized = $this->normalize_slug_value( $slug );
+        if ( '' === $normalized ) {
+            delete_post_meta( $post_id, self::META_ACKNOWLEDGED_DIVERGENT_SUGGESTION );
+            return;
+        }
+
+        update_post_meta( $post_id, self::META_ACKNOWLEDGED_DIVERGENT_SUGGESTION, $normalized );
     }
 
     /**
@@ -811,16 +851,63 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
      * @return string
      */
     private function get_slug_action_url( int $post_id, string $action ): string {
-        $url = add_query_arg(
+        return add_query_arg(
             [
                 'action' => 'simula_slug_action',
                 'post_id' => $post_id,
+                'post' => $post_id,
                 'simula_slug_action' => sanitize_key( $action ),
+                'simula_slug_action_nonce' => wp_create_nonce( self::ACTION_NONCE ),
             ],
             admin_url( 'admin-post.php' )
         );
+    }
 
-        return wp_nonce_url( $url, self::ACTION_NONCE, 'simula_slug_action_nonce' );
+    /**
+     * Resolve the explicit slug-action post ID from request payload or referer.
+     *
+     * @return int
+     */
+    private function resolve_slug_action_post_id_from_request(): int {
+        $candidates = [
+            $_REQUEST['post_id'] ?? null,
+            $_REQUEST['post'] ?? null,
+            $_REQUEST['post_ID'] ?? null,
+            $_REQUEST['id'] ?? null,
+        ];
+
+        foreach ( $candidates as $candidate ) {
+            if ( ! is_scalar( $candidate ) ) {
+                continue;
+            }
+
+            $post_id = absint( wp_unslash( $candidate ) );
+            if ( $post_id > 0 ) {
+                return $post_id;
+            }
+        }
+
+        if ( ! empty( $_REQUEST['_wp_http_referer'] ) ) {
+            $referer = wp_unslash( $_REQUEST['_wp_http_referer'] );
+            if ( is_string( $referer ) ) {
+                $referer_query = wp_parse_url( $referer, PHP_URL_QUERY );
+                if ( is_string( $referer_query ) ) {
+                    parse_str( $referer_query, $referer_args );
+                    foreach ( [ 'post', 'post_id', 'post_ID', 'id' ] as $key ) {
+                        if ( empty( $referer_args[ $key ] ) || ! is_scalar( $referer_args[ $key ] ) ) {
+                            continue;
+                        }
+
+                        $post_id = absint( $referer_args[ $key ] );
+                        if ( $post_id > 0 ) {
+                            return $post_id;
+                        }
+                    }
+                }
+            }
+        }
+
+        return 0;
     }
 
     /**
@@ -849,20 +936,22 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         $manual_lock = ! empty( $ownership_state['manual_lock'] );
         $is_supported = '' !== $suggested_slug && $this->is_slug_generation_eligible_title( $post->post_title );
         $has_divergence = $is_supported && '' !== $current_slug && $current_slug !== $suggested_slug;
+        $acknowledged_suggestion = $this->get_acknowledged_divergent_suggestion( $post_id );
+        $is_acknowledged = $has_divergence && '' !== $acknowledged_suggestion && $acknowledged_suggestion === $suggested_slug;
 
         return [
             'post_id' => $post_id,
             'is_supported' => $is_supported,
-            'should_show_notice' => $has_divergence,
+            'should_show_notice' => $has_divergence && ! $is_acknowledged,
             'has_divergence' => $has_divergence,
             'current_slug' => $current_slug,
             'suggested_slug' => $suggested_slug,
             'manual_lock' => $manual_lock,
             'last_generated_slug' => $ownership_state['last_generated_slug'] ?? '',
+            'is_acknowledged' => $is_acknowledged,
             'action_urls' => $has_divergence ? [
                 self::ACTION_KEEP_CURRENT => $this->get_slug_action_url( $post_id, self::ACTION_KEEP_CURRENT ),
                 self::ACTION_USE_FRIENDLY => $this->get_slug_action_url( $post_id, self::ACTION_USE_FRIENDLY ),
-                self::ACTION_REGENERATE => $this->get_slug_action_url( $post_id, self::ACTION_REGENERATE ),
             ] : [],
         ];
     }
@@ -996,6 +1085,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             [
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
                 'ajaxAction' => 'simula_get_slug_divergence_state',
+                'runActionAjaxAction' => 'simula_run_slug_action',
                 'ajaxNonce' => wp_create_nonce( self::AJAX_NONCE ),
                 'initialPostId' => $this->get_current_admin_post_id(),
                 'status' => $status,
@@ -1009,8 +1099,41 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                     'suggested' => __( 'Suggested slug:', 'simula-friendly-slugs-for-arabic-sites' ),
                     'keep' => __( 'Keep current slug', 'simula-friendly-slugs-for-arabic-sites' ),
                     'useFriendly' => __( 'Use friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
-                    'regenerate' => __( 'Regenerate friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
                 ],
+            ]
+        );
+    }
+
+    /**
+     * Enqueue Classic editor AJAX action handling.
+     *
+     * @return void
+     */
+    public function enqueue_classic_editor_slug_actions(): void {
+        if ( ! $this->is_classic_post_editor_screen() ) {
+            return;
+        }
+
+        $asset_path = plugin_dir_path( __FILE__ ) . 'assets/classic-editor-slug-actions.js';
+        if ( ! file_exists( $asset_path ) ) {
+            return;
+        }
+
+        wp_enqueue_script(
+            'simula-friendly-slugs-classic-editor',
+            plugin_dir_url( __FILE__ ) . 'assets/classic-editor-slug-actions.js',
+            [],
+            (string) filemtime( $asset_path ),
+            true
+        );
+
+        wp_localize_script(
+            'simula-friendly-slugs-classic-editor',
+            'simulaFriendlySlugsClassicEditor',
+            [
+                'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+                'ajaxAction' => 'simula_run_slug_action',
+                'ajaxNonce' => wp_create_nonce( self::AJAX_NONCE ),
             ]
         );
     }
@@ -1043,6 +1166,31 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         wp_send_json_success( $this->get_slug_divergence_state( $post_id ) );
+    }
+
+    /**
+     * Execute an explicit slug action over AJAX.
+     *
+     * @return void
+     */
+    public function ajax_run_slug_action(): void {
+        check_ajax_referer( self::AJAX_NONCE, 'nonce' );
+
+        $post_id = $this->resolve_slug_action_post_id_from_request();
+        if ( $post_id <= 0 ) {
+            wp_send_json_error(
+                [ 'message' => __( 'Invalid post ID.', 'simula-friendly-slugs-for-arabic-sites' ) ],
+                400
+            );
+        }
+
+        $action = isset( $_REQUEST['simula_slug_action'] ) ? sanitize_key( wp_unslash( $_REQUEST['simula_slug_action'] ) ) : '';
+        $result = $this->execute_explicit_slug_action( $post_id, $action );
+        if ( empty( $result['ok'] ) ) {
+            wp_send_json_error( $result, 400 );
+        }
+
+        wp_send_json_success( $result );
     }
 
     /**
@@ -1102,8 +1250,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         $action_urls = $state['action_urls'];
         if (
             empty( $action_urls[ self::ACTION_KEEP_CURRENT ] ) ||
-            empty( $action_urls[ self::ACTION_USE_FRIENDLY ] ) ||
-            empty( $action_urls[ self::ACTION_REGENERATE ] )
+            empty( $action_urls[ self::ACTION_USE_FRIENDLY ] )
         ) {
             return;
         }
@@ -1112,7 +1259,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         $suggested_slug = $state['suggested_slug'];
 
         printf(
-            '<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s</p><p>%3$s <code>%4$s</code><br>%5$s <code>%6$s</code></p><p><a class="button button-secondary" href="%7$s">%8$s</a> <a class="button button-primary" href="%9$s">%10$s</a> <a class="button" href="%11$s">%12$s</a></p></div>',
+            '<div class="notice notice-warning simula-slug-divergence-notice" data-post-id="%13$s"><p><strong>%1$s</strong> %2$s</p><p>%3$s <code>%4$s</code><br>%5$s <code>%6$s</code></p><p><a class="button button-secondary simula-slug-action" href="%7$s" data-post-id="%13$s" data-action-name="%14$s">%8$s</a> <a class="button button-primary simula-slug-action" href="%9$s" data-post-id="%13$s" data-action-name="%15$s">%10$s</a></p></div>',
             esc_html__( 'Friendly slug differs from the current slug.', 'simula-friendly-slugs-for-arabic-sites' ),
             esc_html__( 'Choose whether to keep the current slug or apply the plugin suggestion.', 'simula-friendly-slugs-for-arabic-sites' ),
             esc_html__( 'Current slug:', 'simula-friendly-slugs-for-arabic-sites' ),
@@ -1123,8 +1270,9 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             esc_html__( 'Keep current slug', 'simula-friendly-slugs-for-arabic-sites' ),
             esc_url( $action_urls[ self::ACTION_USE_FRIENDLY ] ),
             esc_html__( 'Use friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
-            esc_url( $action_urls[ self::ACTION_REGENERATE ] ),
-            esc_html__( 'Regenerate friendly slug', 'simula-friendly-slugs-for-arabic-sites' )
+            esc_attr( $post_id ),
+            esc_attr( self::ACTION_KEEP_CURRENT ),
+            esc_attr( self::ACTION_USE_FRIENDLY )
         );
     }
 
@@ -1173,32 +1321,46 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     }
 
     /**
-     * Handle admin-side explicit slug actions.
+     * Execute the requested explicit slug action and return a structured result.
      *
-     * @return void
+     * @param int    $post_id
+     * @param string $action
+     * @return array
      */
-    public function handle_explicit_slug_action(): void {
-        $post_id = isset( $_REQUEST['post_id'] ) ? absint( wp_unslash( $_REQUEST['post_id'] ) ) : 0;
+    private function execute_explicit_slug_action( int $post_id, string $action ): array {
         if ( $post_id <= 0 ) {
-            wp_die( esc_html__( 'Invalid post ID.', 'simula-friendly-slugs-for-arabic-sites' ), 400 );
+            return [
+                'ok' => false,
+                'status' => 'invalid_post',
+                'message' => __( 'Invalid post ID.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ];
         }
 
         if ( ! current_user_can( 'edit_post', $post_id ) ) {
-            wp_die( esc_html__( 'You are not allowed to edit this post.', 'simula-friendly-slugs-for-arabic-sites' ), 403 );
+            return [
+                'ok' => false,
+                'status' => 'forbidden',
+                'message' => __( 'You are not allowed to edit this post.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ];
         }
 
-        check_admin_referer( self::ACTION_NONCE, 'simula_slug_action_nonce' );
-
-        $action = isset( $_REQUEST['simula_slug_action'] ) ? sanitize_key( wp_unslash( $_REQUEST['simula_slug_action'] ) ) : '';
         $post = get_post( $post_id );
         if ( ! $post instanceof WP_Post ) {
-            wp_die( esc_html__( 'Post not found.', 'simula-friendly-slugs-for-arabic-sites' ), 404 );
+            return [
+                'ok' => false,
+                'status' => 'missing_post',
+                'message' => __( 'Post not found.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ];
         }
 
         if ( self::ACTION_KEEP_CURRENT === $action ) {
             $current_slug = $this->normalize_slug_value( $post->post_name );
             if ( '' === $current_slug ) {
-                $this->redirect_after_slug_action( $post_id, 'keep_failed' );
+                return [
+                    'ok' => false,
+                    'status' => 'keep_failed',
+                    'message' => __( 'Could not keep the current slug.', 'simula-friendly-slugs-for-arabic-sites' ),
+                ];
             }
 
             $ownership_state = $this->get_slug_ownership_state( $post_id );
@@ -1208,22 +1370,76 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 true,
                 $ownership_state['last_generated_slug'] ?? ''
             );
-            $this->redirect_after_slug_action( $post_id, $success ? 'kept_current' : 'keep_failed' );
+
+            if ( $success ) {
+                $suggested_slug = $this->generate_plugin_slug_suggestion( $post->post_title, $post->post_name );
+                $this->set_acknowledged_divergent_suggestion( $post_id, $suggested_slug );
+            }
+
+            $status = $success ? 'kept_current' : 'keep_failed';
+            return [
+                'ok' => $success,
+                'status' => $status,
+                'message' => $this->get_slug_action_status_message( $status ),
+                'divergence' => $this->get_slug_divergence_state( $post_id ),
+            ];
         }
 
         if ( ! in_array( $action, [ self::ACTION_REGENERATE, self::ACTION_USE_FRIENDLY ], true ) ) {
-            wp_die( esc_html__( 'Unknown slug action.', 'simula-friendly-slugs-for-arabic-sites' ), 400 );
+            return [
+                'ok' => false,
+                'status' => 'unknown_action',
+                'message' => __( 'Unknown slug action.', 'simula-friendly-slugs-for-arabic-sites' ),
+            ];
         }
 
         $generated_slug = $this->generate_plugin_slug_suggestion( $post->post_title, $post->post_name );
         if ( '' === $generated_slug ) {
-            $this->redirect_after_slug_action( $post_id, 'generation_failed' );
+            return [
+                'ok' => false,
+                'status' => 'generation_failed',
+                'message' => $this->get_slug_action_status_message( 'generation_failed' ),
+                'divergence' => $this->get_slug_divergence_state( $post_id ),
+            ];
         }
 
         $success = $this->apply_explicit_slug_update( $post_id, $generated_slug, false );
-        $success_status = self::ACTION_REGENERATE === $action ? 'regenerated' : 'used_friendly';
-        $failure_status = self::ACTION_REGENERATE === $action ? 'regenerate_failed' : 'use_friendly_failed';
-        $this->redirect_after_slug_action( $post_id, $success ? $success_status : $failure_status );
+        if ( $success ) {
+            $this->set_acknowledged_divergent_suggestion( $post_id, '' );
+        }
+
+        $status = self::ACTION_REGENERATE === $action
+            ? ( $success ? 'regenerated' : 'regenerate_failed' )
+            : ( $success ? 'used_friendly' : 'use_friendly_failed' );
+
+        return [
+            'ok' => $success,
+            'status' => $status,
+            'message' => $this->get_slug_action_status_message( $status ),
+            'divergence' => $this->get_slug_divergence_state( $post_id ),
+        ];
+    }
+
+    /**
+     * Handle admin-side explicit slug actions.
+     *
+     * @return void
+     */
+    public function handle_explicit_slug_action(): void {
+        $post_id = $this->resolve_slug_action_post_id_from_request();
+        if ( $post_id <= 0 ) {
+            wp_die( esc_html__( 'Invalid post ID.', 'simula-friendly-slugs-for-arabic-sites' ), 400 );
+        }
+
+        check_admin_referer( self::ACTION_NONCE, 'simula_slug_action_nonce' );
+
+        $action = isset( $_REQUEST['simula_slug_action'] ) ? sanitize_key( wp_unslash( $_REQUEST['simula_slug_action'] ) ) : '';
+        $result = $this->execute_explicit_slug_action( $post_id, $action );
+        if ( empty( $result['status'] ) ) {
+            wp_die( esc_html__( 'Unknown slug action.', 'simula-friendly-slugs-for-arabic-sites' ), 400 );
+        }
+
+        $this->redirect_after_slug_action( $post_id, (string) $result['status'] );
     }
 
     /**
