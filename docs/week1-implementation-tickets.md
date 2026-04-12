@@ -49,12 +49,14 @@ Source documents:
   - Replace implicit slug-presence logic with ownership-first decision rules.
   - Enforce context guards (autosave/revision/auto-draft exclusions).
   - Keep initial suggestion behavior for eligible new/default states.
+  - Restore `regenerate_on_change` for unlocked plugin-owned slugs on title change.
 - Affected Functions/Hooks:
   - Hook: `wp_insert_post_data`
   - Function: `maybe_generate_slug_on_save(...)`
 - Acceptance Criteria:
   - Manual lock blocks all automatic slug replacement.
   - New eligible posts still get initial friendly suggestion.
+  - Unlocked posts with `regenerate_on_change=1` auto-refresh slug on title change only while current slug still matches `_simula_last_generated_slug`.
   - Autosave/revision contexts do not mutate slug or ownership state.
 - Mapped Test Cases:
   - `W1-01`, `W1-02`, `W1-04`, `W1-05`, `W1-09`, `W1-13`, `W1-14`
@@ -90,7 +92,7 @@ Source documents:
   - Function: `generate_friendly_slug(...)`
 - Acceptance Criteria:
   - No path remains where manual-owned slug is replaced at uniqueness stage.
-  - Behavior remains stable for unlocked initial suggestion flow.
+  - Behavior remains stable for unlocked initial suggestion and `regenerate_on_change` flow.
 - Mapped Test Cases:
   - `W1-05`, `W1-06`, `W1-09`
 

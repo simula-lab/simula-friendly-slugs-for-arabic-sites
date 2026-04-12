@@ -17,7 +17,7 @@ Assumption: start week is Monday, April 13, 2026.
 
 - Refactor `maybe_generate_slug_on_save()` to stop overwriting manually chosen slugs.
 - Implement manual-edit detection and meta persistence.
-- Ensure auto-generation only happens for initial/default slug states or explicit regenerate.
+- Ensure auto-generation happens for initial/default slug states, and for unlocked plugin-owned slugs on title change when `regenerate_on_change` is enabled.
 - Add regression handling for autosaves/revisions.
 - Output: core logic merged behind stable behavior.
 
