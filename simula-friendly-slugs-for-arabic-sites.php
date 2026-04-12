@@ -339,6 +339,10 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     const OPTION_KEY  = 'simula_friendly_slugs_for_arabic_sites_options';
     const META_SLUG_LOCKED_MANUAL = '_simula_slug_locked_manual';
     const META_LAST_GENERATED_SLUG = '_simula_last_generated_slug';
+    const ACTION_NONCE = 'simula_slug_action';
+    const ACTION_REGENERATE = 'regenerate_friendly_slug';
+    const ACTION_USE_FRIENDLY = 'use_friendly_slug';
+    const ACTION_KEEP_CURRENT = 'keep_current_slug';
 
     private static $instance;
     /** @var Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Interface[] */
@@ -363,6 +367,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         // Admin settings
         add_action( 'admin_menu', [ $this, 'register_settings_page' ] );
         add_action( 'admin_init', [ $this, 'register_settings' ] );
+        add_action( 'admin_post_simula_slug_action', [ $this, 'handle_explicit_slug_action' ] );
 
         // Override slug on save
         add_filter( 'wp_unique_post_slug', [ $this, 'generate_friendly_slug' ], 10, 6 );
@@ -723,6 +728,243 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         $this->has_pending_ownership_meta = true;
         $this->pending_manual_lock_value = $manual_lock;
         $this->pending_last_generated_slug_value = $this->normalize_slug_value( $last_generated_slug );
+    }
+
+    /**
+     * Whether the current title is eligible for plugin slug generation.
+     *
+     * @param string $title
+     * @return bool
+     */
+    private function is_slug_generation_eligible_title( string $title ): bool {
+        return '' !== $title && (bool) preg_match( '/\p{Arabic}/u', $title );
+    }
+
+    /**
+     * Build the plugin suggestion for a title according to current settings.
+     *
+     * @param string $title
+     * @param string $fallback_slug
+     * @return string
+     */
+    private function generate_plugin_slug_suggestion( string $title, string $fallback_slug = '' ): string {
+        $opts = get_option( self::OPTION_KEY, [] );
+        $method = $opts['method'] ?? 'none';
+
+        if ( 'none' === $method || ! $this->is_slug_generation_eligible_title( $title ) ) {
+            return '';
+        }
+
+        $converter = "convert_{$method}";
+        if ( ! is_callable( [ $this, $converter ] ) ) {
+            return '';
+        }
+
+        $new_slug_source = $this->$converter( $title );
+        return sanitize_title( $new_slug_source, $fallback_slug, 'save' );
+    }
+
+    /**
+     * Return admin redirect target for explicit slug actions.
+     *
+     * @param int $post_id
+     * @return string
+     */
+    private function get_slug_action_redirect_url( int $post_id ): string {
+        $post = get_post( $post_id );
+        if ( $post instanceof WP_Post ) {
+            return get_edit_post_link( $post_id, 'url' );
+        }
+
+        return admin_url( 'edit.php' );
+    }
+
+    /**
+     * Redirect after an explicit slug action with deterministic status args.
+     *
+     * @param int    $post_id
+     * @param string $status
+     * @return void
+     */
+    private function redirect_after_slug_action( int $post_id, string $status ): void {
+        $redirect_url = add_query_arg(
+            [
+                'simula_slug_action_status' => sanitize_key( $status ),
+                'post' => $post_id,
+            ],
+            $this->get_slug_action_redirect_url( $post_id )
+        );
+
+        wp_safe_redirect( $redirect_url );
+        exit;
+    }
+
+    /**
+     * Build a nonce-protected admin URL for an explicit slug action.
+     *
+     * @param int    $post_id
+     * @param string $action
+     * @return string
+     */
+    private function get_slug_action_url( int $post_id, string $action ): string {
+        $url = add_query_arg(
+            [
+                'action' => 'simula_slug_action',
+                'post_id' => $post_id,
+                'simula_slug_action' => sanitize_key( $action ),
+            ],
+            admin_url( 'admin-post.php' )
+        );
+
+        return wp_nonce_url( $url, self::ACTION_NONCE, 'simula_slug_action_nonce' );
+    }
+
+    /**
+     * Calculate the plugin-vs-current slug divergence state for a post.
+     *
+     * @param int $post_id
+     * @return array
+     */
+    private function get_slug_divergence_state( int $post_id ): array {
+        $post = get_post( $post_id );
+        if ( ! $post instanceof WP_Post ) {
+            return [
+                'post_id' => $post_id,
+                'is_supported' => false,
+                'should_show_notice' => false,
+                'current_slug' => '',
+                'suggested_slug' => '',
+                'manual_lock' => false,
+                'action_urls' => [],
+            ];
+        }
+
+        $current_slug = $this->normalize_slug_value( $post->post_name );
+        $suggested_slug = $this->generate_plugin_slug_suggestion( $post->post_title, $post->post_name );
+        $ownership_state = $this->get_slug_ownership_state( $post_id );
+        $manual_lock = ! empty( $ownership_state['manual_lock'] );
+        $is_supported = '' !== $suggested_slug && $this->is_slug_generation_eligible_title( $post->post_title );
+        $has_divergence = $is_supported && '' !== $current_slug && $current_slug !== $suggested_slug;
+
+        return [
+            'post_id' => $post_id,
+            'is_supported' => $is_supported,
+            'should_show_notice' => $has_divergence,
+            'has_divergence' => $has_divergence,
+            'current_slug' => $current_slug,
+            'suggested_slug' => $suggested_slug,
+            'manual_lock' => $manual_lock,
+            'last_generated_slug' => $ownership_state['last_generated_slug'] ?? '',
+            'action_urls' => $has_divergence ? [
+                self::ACTION_KEEP_CURRENT => $this->get_slug_action_url( $post_id, self::ACTION_KEEP_CURRENT ),
+                self::ACTION_USE_FRIENDLY => $this->get_slug_action_url( $post_id, self::ACTION_USE_FRIENDLY ),
+                self::ACTION_REGENERATE => $this->get_slug_action_url( $post_id, self::ACTION_REGENERATE ),
+            ] : [],
+        ];
+    }
+
+    /**
+     * Public accessor for editor integrations that need slug divergence state.
+     *
+     * @param int $post_id
+     * @return array
+     */
+    public function get_editor_slug_divergence_state( int $post_id ): array {
+        return $this->get_slug_divergence_state( $post_id );
+    }
+
+    /**
+     * Apply an explicit slug ownership transition for an existing post.
+     *
+     * @param int    $post_id
+     * @param string $slug
+     * @param bool   $manual_lock
+     * @return bool
+     */
+    private function apply_explicit_slug_update( int $post_id, string $slug, bool $manual_lock ): bool {
+        if ( $post_id <= 0 ) {
+            return false;
+        }
+
+        $normalized_slug = $this->normalize_slug_value( $slug );
+        if ( '' === $normalized_slug ) {
+            return false;
+        }
+
+        remove_action( 'save_post', [ $this, 'persist_pending_slug_ownership_meta' ], 20 );
+
+        $result = wp_update_post(
+            [
+                'ID' => $post_id,
+                'post_name' => $normalized_slug,
+            ],
+            true
+        );
+
+        add_action( 'save_post', [ $this, 'persist_pending_slug_ownership_meta' ], 20, 3 );
+
+        if ( is_wp_error( $result ) ) {
+            return false;
+        }
+
+        $this->set_manual_slug_lock( $post_id, $manual_lock );
+        if ( $manual_lock ) {
+            $existing_slug = get_post_field( 'post_name', $post_id );
+            $stored_slug = '' !== $existing_slug ? (string) $existing_slug : $normalized_slug;
+            $this->set_last_generated_slug( $post_id, $stored_slug );
+            return true;
+        }
+
+        $this->set_last_generated_slug( $post_id, $normalized_slug );
+        return true;
+    }
+
+    /**
+     * Handle admin-side explicit slug actions.
+     *
+     * @return void
+     */
+    public function handle_explicit_slug_action(): void {
+        $post_id = isset( $_REQUEST['post_id'] ) ? absint( wp_unslash( $_REQUEST['post_id'] ) ) : 0;
+        if ( $post_id <= 0 ) {
+            wp_die( esc_html__( 'Invalid post ID.', 'simula-friendly-slugs-for-arabic-sites' ), 400 );
+        }
+
+        if ( ! current_user_can( 'edit_post', $post_id ) ) {
+            wp_die( esc_html__( 'You are not allowed to edit this post.', 'simula-friendly-slugs-for-arabic-sites' ), 403 );
+        }
+
+        check_admin_referer( self::ACTION_NONCE, 'simula_slug_action_nonce' );
+
+        $action = isset( $_REQUEST['simula_slug_action'] ) ? sanitize_key( wp_unslash( $_REQUEST['simula_slug_action'] ) ) : '';
+        $post = get_post( $post_id );
+        if ( ! $post instanceof WP_Post ) {
+            wp_die( esc_html__( 'Post not found.', 'simula-friendly-slugs-for-arabic-sites' ), 404 );
+        }
+
+        if ( self::ACTION_KEEP_CURRENT === $action ) {
+            $current_slug = $this->normalize_slug_value( $post->post_name );
+            if ( '' === $current_slug ) {
+                $this->redirect_after_slug_action( $post_id, 'keep_failed' );
+            }
+
+            $success = $this->apply_explicit_slug_update( $post_id, $current_slug, true );
+            $this->redirect_after_slug_action( $post_id, $success ? 'kept_current' : 'keep_failed' );
+        }
+
+        if ( ! in_array( $action, [ self::ACTION_REGENERATE, self::ACTION_USE_FRIENDLY ], true ) ) {
+            wp_die( esc_html__( 'Unknown slug action.', 'simula-friendly-slugs-for-arabic-sites' ), 400 );
+        }
+
+        $generated_slug = $this->generate_plugin_slug_suggestion( $post->post_title, $post->post_name );
+        if ( '' === $generated_slug ) {
+            $this->redirect_after_slug_action( $post_id, 'generation_failed' );
+        }
+
+        $success = $this->apply_explicit_slug_update( $post_id, $generated_slug, false );
+        $success_status = self::ACTION_REGENERATE === $action ? 'regenerated' : 'used_friendly';
+        $failure_status = self::ACTION_REGENERATE === $action ? 'regenerate_failed' : 'use_friendly_failed';
+        $this->redirect_after_slug_action( $post_id, $success ? $success_status : $failure_status );
     }
 
     /**
