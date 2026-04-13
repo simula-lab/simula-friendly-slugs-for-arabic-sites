@@ -1013,10 +1013,13 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             'manual_lock' => $manual_lock,
             'last_generated_slug' => $ownership_state['last_generated_slug'] ?? '',
             'is_acknowledged' => $is_acknowledged,
-            'action_urls' => $has_divergence ? [
-                self::ACTION_KEEP_CURRENT => $this->get_slug_action_url( $post_id, self::ACTION_KEEP_CURRENT ),
-                self::ACTION_USE_FRIENDLY => $this->get_slug_action_url( $post_id, self::ACTION_USE_FRIENDLY ),
-            ] : [],
+            'action_urls' => array_filter(
+                [
+                    self::ACTION_REGENERATE => $is_supported ? $this->get_slug_action_url( $post_id, self::ACTION_REGENERATE ) : '',
+                    self::ACTION_KEEP_CURRENT => $has_divergence ? $this->get_slug_action_url( $post_id, self::ACTION_KEEP_CURRENT ) : '',
+                    self::ACTION_USE_FRIENDLY => $has_divergence ? $this->get_slug_action_url( $post_id, self::ACTION_USE_FRIENDLY ) : '',
+                ]
+            ),
         ];
     }
 
@@ -1156,6 +1159,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 'statusMessage' => '' !== $status ? $this->get_slug_action_status_message( $status ) : null,
                 'noticeId' => 'simula-friendly-slugs-divergence-notice',
                 'statusNoticeId' => 'simula-friendly-slugs-status-notice',
+                'generateAction' => self::ACTION_REGENERATE,
                 'labels' => [
                     'title' => __( 'Friendly slug differs from the current slug.', 'simula-friendly-slugs-for-arabic-sites' ),
                     'body' => __( 'Choose whether to keep the current slug or apply the plugin suggestion.', 'simula-friendly-slugs-for-arabic-sites' ),
@@ -1163,6 +1167,8 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                     'suggested' => __( 'Suggested slug:', 'simula-friendly-slugs-for-arabic-sites' ),
                     'keep' => __( 'Keep current slug', 'simula-friendly-slugs-for-arabic-sites' ),
                     'useFriendly' => __( 'Use friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'generate' => __( 'Generate friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'generating' => __( 'Generating friendly slug...', 'simula-friendly-slugs-for-arabic-sites' ),
                 ],
             ]
         );
@@ -1198,6 +1204,13 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
                 'ajaxAction' => 'simula_run_slug_action',
                 'ajaxNonce' => wp_create_nonce( self::AJAX_NONCE ),
+                'stateAjaxAction' => 'simula_get_slug_divergence_state',
+                'postId' => $this->get_current_admin_post_id(),
+                'generateAction' => self::ACTION_REGENERATE,
+                'labels' => [
+                    'generate' => __( 'Generate friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'generating' => __( 'Generating friendly slug...', 'simula-friendly-slugs-for-arabic-sites' ),
+                ],
             ]
         );
     }

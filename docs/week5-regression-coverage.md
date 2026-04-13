@@ -36,15 +36,15 @@ Track verification for the Week 5 security and consistency cleanup:
 
 Mark each row as `PASS` / `FAIL` / `N/A` and include notes.
 
-| ID    | Status | Notes |
-| ----- | ------ | ----- |
-| W5-01 | PASS   | `api_key` provider fields now render as `type="password"` with blank default value. |
+| ID    | Status | Notes                                                                                                          |
+| ----- | ------ | -------------------------------------------------------------------------------------------------------------- |
+| W5-01 | PASS   | `api_key` provider fields now render as `type="password"` with blank default value.                            |
 | W5-02 | PASS   | Blank submitted `api_key` values now fall back to the previously saved option value before validation/storage. |
-| W5-03 | PASS   | Non-empty submitted replacement values still flow through validation and persistence. |
-| W5-04 | PASS   | Selected-provider validation receives the effective key value even when the replacement field is left blank. |
-| W5-05 | PASS   | Only `api_key` fields were changed; `text` and `url` provider fields keep their existing render paths. |
-| W5-06 | PASS   | Supported methods are now normalized through a single allow-list that excludes `custom_transliteration`. |
-| W5-07 | PASS   | Runtime consumers now normalize unsupported saved methods to `none`. |
+| W5-03 | PASS   | Non-empty submitted replacement values still flow through validation and persistence.                          |
+| W5-04 | PASS   | Selected-provider validation receives the effective key value even when the replacement field is left blank.   |
+| W5-05 | PASS   | Only `api_key` fields were changed; `text` and `url` provider fields keep their existing render paths.         |
+| W5-06 | PASS   | Supported methods are now normalized through a single allow-list that excludes `custom_transliteration`.       |
+| W5-07 | PASS   | Runtime consumers now normalize unsupported saved methods to `none`.                                           |
 
 ## Workspace Verification Completed
 
@@ -74,3 +74,6 @@ Current status:
 
 - Workspace verification completed.
 - WordPress runtime QA remains required for end-to-end admin confirmation.
+
+- `W5-MQ-01` is confirming `PASS
+- `W5-MQ-02` is confirming `PASS`
