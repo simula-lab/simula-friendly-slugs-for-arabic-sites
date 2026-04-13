@@ -1564,27 +1564,27 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                         ],
                     ],
                 ],
-                'mock' => [
-                    'label' => __( 'Mock Provider', 'simula-friendly-slugs-for-arabic-sites' ),
-                    'description' => __( 'QA-only provider for testing multi-provider settings flows without external API calls.', 'simula-friendly-slugs-for-arabic-sites' ),
-                    'class' => 'Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Mock',
-                    'fields' => [
-                        [
-                            'type' => 'text',
-                            'option_path' => [ 'api_keys', 'mock' ],
-                            'validation_key' => 'key',
-                            'label' => __( 'Mock Token', 'simula-friendly-slugs-for-arabic-sites' ),
-                            'description' => __( 'Enter any token with at least 6 characters.', 'simula-friendly-slugs-for-arabic-sites' ),
-                        ],
-                        [
-                            'type' => 'url',
-                            'option_path' => [ 'provider_endpoints', 'mock' ],
-                            'validation_key' => 'endpoint',
-                            'label' => __( 'Mock Endpoint', 'simula-friendly-slugs-for-arabic-sites' ),
-                            'description' => __( 'Optional URL used only to test provider-specific field persistence.', 'simula-friendly-slugs-for-arabic-sites' ),
-                        ],
-                    ],
-                ],
+                // 'mock' => [
+                //     'label' => __( 'Mock Provider', 'simula-friendly-slugs-for-arabic-sites' ),
+                //     'description' => __( 'QA-only provider for testing multi-provider settings flows without external API calls.', 'simula-friendly-slugs-for-arabic-sites' ),
+                //     'class' => 'Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Mock',
+                //     'fields' => [
+                //         [
+                //             'type' => 'text',
+                //             'option_path' => [ 'api_keys', 'mock' ],
+                //             'validation_key' => 'key',
+                //             'label' => __( 'Mock Token', 'simula-friendly-slugs-for-arabic-sites' ),
+                //             'description' => __( 'Enter any token with at least 6 characters.', 'simula-friendly-slugs-for-arabic-sites' ),
+                //         ],
+                //         [
+                //             'type' => 'url',
+                //             'option_path' => [ 'provider_endpoints', 'mock' ],
+                //             'validation_key' => 'endpoint',
+                //             'label' => __( 'Mock Endpoint', 'simula-friendly-slugs-for-arabic-sites' ),
+                //             'description' => __( 'Optional URL used only to test provider-specific field persistence.', 'simula-friendly-slugs-for-arabic-sites' ),
+                //         ],
+                //     ],
+                // ],
                 // you can add 'custom' here by default if you wish
                 // ],
                 // 'custom' => [
