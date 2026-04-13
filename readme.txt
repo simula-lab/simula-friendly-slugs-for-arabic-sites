@@ -35,6 +35,13 @@ The plugin has no effect on non-Arabic post titles.
 
 == Changelog ==
 
+= 1.2.4 =
+* Added clearer slug ownership behavior so manual slug edits are preserved instead of being overwritten on later saves.
+* Added editor actions and notices for keeping the current slug or explicitly applying the plugin-generated friendly slug.
+* Improved translation provider settings so only the selected provider is validated during settings save.
+* Updated API key handling to use a masked replacement flow and preserve saved keys when the field is left blank.
+* Added release-preparation QA and compatibility work for the `1.2.4` package.
+
 = 1.1.0 =
 * The plugin now follows the Consent API Guidelines
 
@@ -43,7 +50,8 @@ The plugin has no effect on non-Arabic post titles.
 
 == Upgrade Notice ==
 
-= 1.0.0 =
+= 1.2.4 =
+Improves manual slug ownership, editor guidance, provider settings stability, and API key handling.
 
 == Frequently Asked Questions ==
 
