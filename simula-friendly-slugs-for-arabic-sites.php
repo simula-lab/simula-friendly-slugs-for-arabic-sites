@@ -192,6 +192,49 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
     }    
 }
 
+/**
+ * QA-only mock provider used to exercise multi-provider settings behavior
+ * without external API dependencies.
+ */
+class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Mock implements Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Interface {
+
+    private $token;
+
+    public function __construct( $key ) {
+        $this->token = sanitize_text_field( (string) $key );
+    }
+
+    public function translate( string $text ): string {
+        if ( '' === $this->token ) {
+            return $text;
+        }
+
+        return 'mock-' . sanitize_title( $text, '', 'save' );
+    }
+
+    public function validate_settings( array $raw ) {
+        $token = sanitize_text_field( $raw['key'] ?? '' );
+        $endpoint = esc_url_raw( $raw['endpoint'] ?? '' );
+
+        if ( '' === $token ) {
+            return new WP_Error( 'empty_mock_token', __( 'Mock provider token cannot be empty.', 'simula-friendly-slugs-for-arabic-sites' ) );
+        }
+
+        if ( strlen( $token ) < 6 ) {
+            return new WP_Error( 'invalid_mock_token', __( 'Mock provider token must be at least 6 characters.', 'simula-friendly-slugs-for-arabic-sites' ) );
+        }
+
+        if ( '' !== $endpoint && ! wp_http_validate_url( $endpoint ) ) {
+            return new WP_Error( 'invalid_mock_endpoint', __( 'Mock provider endpoint must be a valid URL.', 'simula-friendly-slugs-for-arabic-sites' ) );
+        }
+
+        return [
+            'key' => $token,
+            'endpoint' => $endpoint,
+        ];
+    }
+}
+
 
 // // Custom provider
 // class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Custom implements Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Interface {
@@ -780,6 +823,27 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                             'validation_key' => 'key',
                             'label' => __( 'Google API Key', 'simula-friendly-slugs-for-arabic-sites' ),
                             'description' => __( 'API key used for Google Translate requests.', 'simula-friendly-slugs-for-arabic-sites' ),
+                        ],
+                    ],
+                ],
+                'mock' => [
+                    'label' => __( 'Mock Provider', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'description' => __( 'QA-only provider for testing multi-provider settings flows without external API calls.', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'class' => 'Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Mock',
+                    'fields' => [
+                        [
+                            'type' => 'text',
+                            'option_path' => [ 'api_keys', 'mock' ],
+                            'validation_key' => 'key',
+                            'label' => __( 'Mock Token', 'simula-friendly-slugs-for-arabic-sites' ),
+                            'description' => __( 'Enter any token with at least 6 characters.', 'simula-friendly-slugs-for-arabic-sites' ),
+                        ],
+                        [
+                            'type' => 'url',
+                            'option_path' => [ 'provider_endpoints', 'mock' ],
+                            'validation_key' => 'endpoint',
+                            'label' => __( 'Mock Endpoint', 'simula-friendly-slugs-for-arabic-sites' ),
+                            'description' => __( 'Optional URL used only to test provider-specific field persistence.', 'simula-friendly-slugs-for-arabic-sites' ),
                         ],
                     ],
                 ],
