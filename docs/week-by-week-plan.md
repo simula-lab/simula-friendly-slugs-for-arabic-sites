@@ -29,12 +29,18 @@ Assumption: start week is Monday, April 13, 2026.
 - Validate UI behavior in both editor contexts.
 - Output: complete user-facing `P0` flow.
 
-## Week 4 (May 4-May 10): Provider fixes (`P1`)
+## Week 4 (May 4-May 10): Provider fixes (`P1`) - Complete
 
 - Fix settings sanitizer to validate only selected provider credentials.
 - Refactor provider settings UI to use provider definitions (single source of truth).
 - Verify third-party provider extension behavior.
 - Output: extensible and consistent provider configuration.
+
+Status:
+
+- Complete on 2026-04-13
+- Manual QA passed (`W4-MQ-01..10`)
+- Closeout: `docs/week4-closeout-note.md`
 
 ## Week 5 (May 11-May 17): Security + cleanup (`P2`)
 
