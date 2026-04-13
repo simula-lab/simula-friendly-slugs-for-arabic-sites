@@ -380,7 +380,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         $defs        = self::get_translation_providers_definitions();
         foreach ( $defs as $key => $def ) {
             $class_name = $def['class'];
-            if ( class_exists( $class_name ) ) {
+            if ( class_exists( $class_name ) && is_subclass_of( $class_name, Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Interface::class ) ) {
                 $key_to_use = $api_keys[ $key ] ?? '';
                 $this->providers[ $key ] = new $class_name( $key_to_use );
             }
@@ -777,6 +777,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                         [
                             'type' => 'api_key',
                             'option_path' => [ 'api_keys', 'google' ],
+                            'validation_key' => 'key',
                             'label' => __( 'Google API Key', 'simula-friendly-slugs-for-arabic-sites' ),
                             'description' => __( 'API key used for Google Translate requests.', 'simula-friendly-slugs-for-arabic-sites' ),
                         ],
@@ -792,11 +793,13 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 //         [
                 //             'type' => 'url',
                 //             'option_path' => [ 'custom_api_endpoint' ],
+                //             'validation_key' => 'endpoint',
                 //             'label' => __( 'Custom API Endpoint', 'simula-friendly-slugs-for-arabic-sites' ),
                 //         ],
                 //         [
                 //             'type' => 'api_key',
                 //             'option_path' => [ 'api_keys', 'custom' ],
+                //             'validation_key' => 'key',
                 //             'label' => __( 'Custom API Key', 'simula-friendly-slugs-for-arabic-sites' ),
                 //         ],
                 //     ],
@@ -860,6 +863,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                         'type' => $type,
                         'label' => $field_label,
                         'option_path' => $normalized_path,
+                        'validation_key' => isset( $field['validation_key'] ) ? sanitize_key( (string) $field['validation_key'] ) : $this->infer_provider_field_validation_key( $type, $normalized_path ),
                     ];
 
                     if ( isset( $field['description'] ) ) {
@@ -1120,6 +1124,114 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     }
 
     /**
+     * Infer the validation payload key for a provider field.
+     *
+     * @param string $type
+     * @param array  $option_path
+     * @return string
+     */
+    private function infer_provider_field_validation_key( string $type, array $option_path ): string {
+        $last_segment = (string) end( $option_path );
+
+        if ( 'api_key' === $type ) {
+            return 'key';
+        }
+
+        if ( 'url' === $type && 'custom_api_endpoint' === $last_segment ) {
+            return 'endpoint';
+        }
+
+        return sanitize_key( $last_segment );
+    }
+
+    /**
+     * Build the selected provider validation payload from declared fields.
+     *
+     * @param array  $input
+     * @param array  $provider_definition
+     * @param string $service
+     * @return array
+     */
+    private function build_provider_validation_payload( array $input, array $provider_definition, string $service ): array {
+        $payload = [];
+        $fields = $provider_definition['fields'] ?? [];
+
+        if ( is_array( $fields ) ) {
+            foreach ( $fields as $field ) {
+                $validation_key = $field['validation_key'] ?? '';
+                $option_path = $field['option_path'] ?? [];
+
+                if ( '' === $validation_key || ! is_array( $option_path ) || empty( $option_path ) ) {
+                    continue;
+                }
+
+                $value = $this->get_nested_option_value( $input, $option_path );
+                $payload[ $validation_key ] = is_scalar( $value ) ? (string) $value : '';
+            }
+        }
+
+        if ( ! array_key_exists( 'key', $payload ) ) {
+            $value = $this->get_nested_option_value( $input, [ 'api_keys', $service ] );
+            $payload['key'] = is_scalar( $value ) ? (string) $value : '';
+        }
+
+        if ( ! array_key_exists( 'endpoint', $payload ) ) {
+            $value = $this->get_nested_option_value( $input, [ 'custom_api_endpoint' ] );
+            $payload['endpoint'] = is_scalar( $value ) ? (string) $value : '';
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Apply provider validation results back into the stored options array.
+     *
+     * @param array        $valid
+     * @param array        $provider_definition
+     * @param string       $service
+     * @param string|array $result
+     * @param array        $fallback_payload
+     * @return void
+     */
+    private function apply_provider_validation_result( array &$valid, array $provider_definition, string $service, $result, array $fallback_payload ): void {
+        $fields = $provider_definition['fields'] ?? [];
+        $result_map = is_array( $result ) ? $result : [];
+
+        if ( ! is_array( $fields ) || empty( $fields ) ) {
+            $valid['api_keys'][ $service ] = sanitize_text_field( is_string( $result ) ? $result : (string) ( $fallback_payload['key'] ?? '' ) );
+            if ( isset( $fallback_payload['endpoint'] ) ) {
+                $valid['custom_api_endpoint'] = esc_url_raw( (string) $fallback_payload['endpoint'] );
+            }
+            return;
+        }
+
+        foreach ( $fields as $index => $field ) {
+            $validation_key = $field['validation_key'] ?? '';
+            $option_path = $field['option_path'] ?? [];
+
+            if ( '' === $validation_key || ! is_array( $option_path ) || empty( $option_path ) ) {
+                continue;
+            }
+
+            if ( is_string( $result ) && 0 === $index ) {
+                $value = $result;
+            } elseif ( array_key_exists( $validation_key, $result_map ) ) {
+                $value = $result_map[ $validation_key ];
+            } elseif ( array_key_exists( $validation_key, $fallback_payload ) ) {
+                $value = $fallback_payload[ $validation_key ];
+            } else {
+                $value = $this->get_nested_option_value( $valid, $option_path );
+            }
+
+            $this->set_nested_option_value(
+                $valid,
+                $option_path,
+                $this->sanitize_provider_field_value( $field['type'] ?? 'text', is_scalar( $value ) ? (string) $value : '' )
+            );
+        }
+    }
+
+    /**
      * Resolve a nested option value from an array path.
      *
      * @param array $options
@@ -1138,6 +1250,55 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         return $value;
+    }
+
+    /**
+     * Persist a nested option value into an array path.
+     *
+     * @param array  $options
+     * @param array  $path
+     * @param string $value
+     * @return void
+     */
+    private function set_nested_option_value( array &$options, array $path, string $value ): void {
+        if ( empty( $path ) ) {
+            return;
+        }
+
+        $current = &$options;
+        $last_index = count( $path ) - 1;
+
+        foreach ( $path as $index => $segment ) {
+            if ( $index === $last_index ) {
+                $current[ $segment ] = $value;
+                return;
+            }
+
+            if ( ! isset( $current[ $segment ] ) || ! is_array( $current[ $segment ] ) ) {
+                $current[ $segment ] = [];
+            }
+
+            $current = &$current[ $segment ];
+        }
+    }
+
+    /**
+     * Sanitize a provider field value by declared type.
+     *
+     * @param string $type
+     * @param string $value
+     * @return string
+     */
+    private function sanitize_provider_field_value( string $type, string $value ): string {
+        switch ( $type ) {
+            case 'url':
+                return esc_url_raw( $value );
+
+            case 'api_key':
+            case 'text':
+            default:
+                return sanitize_text_field( $value );
+        }
     }
 
     /**
@@ -1236,14 +1397,11 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             $valid['translation_service'] = $service;
 
             // Validate only the selected provider; preserve saved settings for all others.
-            $raw_key      = $input['api_keys'][ $service ] ?? '';
-            $raw_endpoint = $input['custom_api_endpoint'] ?? '';
+            $selected_provider  = $definitions[ $service ];
+            $validation_payload = $this->build_provider_validation_payload( $input, $selected_provider, $service );
 
             if ( isset( $this->providers[ $service ] ) && method_exists( $this->providers[ $service ], 'validate_settings' ) ) {
-                $result = $this->providers[ $service ]->validate_settings([
-                    'key'      => $raw_key,
-                    'endpoint' => $raw_endpoint,
-                ]);
+                $result = $this->providers[ $service ]->validate_settings( $validation_payload );
                 if ( is_wp_error( $result ) ) {
                     add_settings_error(
                         self::OPTION_KEY,
@@ -1254,19 +1412,10 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                     return $previous;
                 }
 
-                if ( is_array( $result ) ) {
-                    $valid['api_keys'][ $service ] = sanitize_text_field( $result['key'] ?? '' );
-                    $valid['custom_api_endpoint'] = esc_url_raw( $result['endpoint'] ?? '' );
-                } else {
-                    $valid['api_keys'][ $service ] = sanitize_text_field( $result );
-                }
+                $this->apply_provider_validation_result( $valid, $selected_provider, $service, $result, $validation_payload );
             } else {
                 // If a selected provider has no runtime validator, store its submitted values safely.
-                $valid['api_keys'][ $service ] = sanitize_text_field( $raw_key );
-
-                if ( isset( $input['custom_api_endpoint'] ) ) {
-                    $valid['custom_api_endpoint'] = esc_url_raw( $raw_endpoint );
-                }
+                $this->apply_provider_validation_result( $valid, $selected_provider, $service, $validation_payload, $validation_payload );
             }
         }
 
