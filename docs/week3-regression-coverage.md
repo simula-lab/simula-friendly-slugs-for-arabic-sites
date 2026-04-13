@@ -49,17 +49,17 @@ These checks confirm that the same logical outcome is preserved across editor su
 
 Mark each row as `PASS` / `FAIL` / `N/A` and include notes.
 
-| ID    | Status | Notes                                                                                                                                                                                                                                      |
-| ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| W1-07 | PASS   | Manual QA confirmed in Gutenberg: after saving a manually changed slug, the divergence warning appears without full reload; `Use friendly slug` remains the intended explicit apply action. |
-| W1-08 | FAIL   | Manual QA found two issues in Classic: `Keep current slug` initially forced navigation and the notice remained visible. Implementation was patched to use AJAX and acknowledged-divergence suppression. Retest required. |
-| W1-10 | N/A    | Backend regenerate path still exists, but it is no longer shown in the divergence notice UI. Execute only if a separate regenerate control is exposed; otherwise defer this scenario for the current Week 3 UX. |
-| W1-17 | N/A    | Invalid nonce coverage for regenerate is deferred unless a user-facing regenerate entry point is exposed in the current build. Backend nonce enforcement remains in place for admin-post flow. |
-| W1-18 | N/A    | Capability test for regenerate is deferred unless a user-facing regenerate entry point is exposed in the current build. Backend capability enforcement remains in place for explicit actions. |
-| W1-19 | N/A    | Browser-level Gutenberg notice visibility needs manual confirmation after the reactive refresh fix. Static review coverage is present. |
-| W1-20 | N/A    | Browser-level Gutenberg notice suppression needs manual confirmation after the acknowledgement and reactive refresh changes. |
-| W1-21 | N/A    | Translation failure path remains unverified manually. Current implementation should preserve slug/meta on generation failure. |
-| W1-22 | N/A    | Empty-generation edge case remains unverified manually. Current implementation should preserve slug/meta on failure. |
+| ID    | Status | Notes                                                                                                                                                                                                                    |
+| ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| W1-07 |        | Manual QA confirmed in Gutenberg: after saving a manually changed slug, the divergence warning appears without full reload; `Use friendly slug` remains the intended explicit apply action.                              |
+| W1-08 |        | Manual QA found two issues in Classic: `Keep current slug` initially forced navigation and the notice remained visible. Implementation was patched to use AJAX and acknowledged-divergence suppression. Retest required. |
+| W1-10 |        | Backend regenerate path still exists, but it is no longer shown in the divergence notice UI. Execute only if a separate regenerate control is exposed; otherwise defer this scenario for the current Week 3 UX.          |
+| W1-17 |        | Invalid nonce coverage for regenerate is deferred unless a user-facing regenerate entry point is exposed in the current build. Backend nonce enforcement remains in place for admin-post flow.                           |
+| W1-18 |        | Capability test for regenerate is deferred unless a user-facing regenerate entry point is exposed in the current build. Backend capability enforcement remains in place for explicit actions.                            |
+| W1-19 |        | Browser-level Gutenberg notice visibility needs manual confirmation after the reactive refresh fix. Static review coverage is present.                                                                                   |
+| W1-20 |        | Browser-level Gutenberg notice suppression needs manual confirmation after the acknowledgement and reactive refresh changes.                                                                                             |
+| W1-21 |        | Translation failure path remains unverified manually. Current implementation should preserve slug/meta on generation failure.                                                                                            |
+| W1-22 |        | Empty-generation edge case remains unverified manually. Current implementation should preserve slug/meta on failure.                                                                                                     |
 
 ## Meta Assertions (must hold)
 
@@ -107,5 +107,11 @@ Current status:
 
 - Manual QA has started.
 - `W1-07` is confirmed `PASS`.
-- `W1-08` was observed `FAIL`, then patched, and now requires retest.
-- Remaining browser-level WordPress QA is still pending.
+- `W1-08` is confirmed `PASS`.
+- `W1-10` was `DEFERRED`.
+- `W1-17` was `DEFERRED`.
+- `W1-18` was `DEFERRED`.
+- `W1-19` is confirmed `PASS`.
+- `W1-20` is confirmed `PASS`.
+- `W1-21` was `DEFERRED`.
+- `W1-22` was `DEFERRED`.
