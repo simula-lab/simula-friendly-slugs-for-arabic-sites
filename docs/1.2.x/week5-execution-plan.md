@@ -4,9 +4,9 @@ Date: 2026-04-13
 Target week: May 11-May 17, 2026
 Source documents:
 
-- `docs/week-by-week-plan.md`
-- `docs/ISSUES.md`
-- `docs/week4-closeout-note.md`
+- `docs/1.2.x/week-by-week-plan.md`
+- `docs/1.2.x/ISSUES.md`
+- `docs/1.2.x/week4-closeout-note.md`
 
 ## Objective
 
@@ -99,8 +99,8 @@ Complete the planned `P2` cleanup work so provider credentials are no longer exp
   - Add a manual QA guide for the new settings behavior.
   - Record regression-coverage status and remaining runtime QA needs.
 - Affected Files:
-  - `docs/week5-manual-qa-guide.md`
-  - `docs/week5-regression-coverage.md`
+  - `docs/1.2.x/week5-manual-qa-guide.md`
+  - `docs/1.2.x/week5-regression-coverage.md`
 - Acceptance Criteria:
   - A concrete verification checklist exists for API key masking and method cleanup.
   - Workspace verification status is documented.

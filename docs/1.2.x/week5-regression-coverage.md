@@ -4,8 +4,8 @@ Date: 2026-04-13
 Scope: `TKT-P2-W5-01..05`
 Source documents:
 
-- `docs/week5-execution-plan.md`
-- `docs/ISSUES.md`
+- `docs/1.2.x/week5-execution-plan.md`
+- `docs/1.2.x/ISSUES.md`
 
 ## Purpose
 

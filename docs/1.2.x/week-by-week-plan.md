@@ -40,7 +40,7 @@ Status:
 
 - Complete on 2026-04-13
 - Manual QA passed (`W4-MQ-01..10`)
-- Closeout: `docs/week4-closeout-note.md`
+- Closeout: `docs/1.2.x/week4-closeout-note.md`
 
 ## Week 5 (May 11-May 17): Security + cleanup (`P2`)
 

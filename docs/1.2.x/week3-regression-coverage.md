@@ -6,7 +6,7 @@ Scope: `TKT-P0-W3-01..04`
 
 ## Purpose
 
-Track execution of Week 3 regression scenarios mapped from `docs/week1-test-matrix.md` for:
+Track execution of Week 3 regression scenarios mapped from `docs/1.2.x/week1-test-matrix.md` for:
 
 - explicit use-friendly actions and backend-supported regenerate behavior
 - keep-current ownership confirmation
@@ -20,7 +20,7 @@ Track execution of Week 3 regression scenarios mapped from `docs/week1-test-matr
 - Editor contexts exercised:
   - static code review in this workspace
   - manual browser QA partially executed outside this workspace (`W1-07` confirmed pass; `W1-08` initially failed, then implementation was patched and needs retest)
-- Depends on Week 2 baseline in `docs/week2-regression-coverage.md`
+- Depends on Week 2 baseline in `docs/1.2.x/week2-regression-coverage.md`
 
 ## Required Scenario Set (Week 3)
 

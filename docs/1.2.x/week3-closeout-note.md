@@ -4,9 +4,9 @@ Date: 2026-04-13
 Scope: Week 3 P0 closeout
 References:
 
-- `docs/week3-execution-plan.md`
-- `docs/week3-regression-coverage.md`
-- `docs/week3-manual-qa-guide.md`
+- `docs/1.2.x/week3-execution-plan.md`
+- `docs/1.2.x/week3-regression-coverage.md`
+- `docs/1.2.x/week3-manual-qa-guide.md`
 
 ## Outcome
 

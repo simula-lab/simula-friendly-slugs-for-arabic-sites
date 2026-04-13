@@ -4,8 +4,8 @@ Date: 2026-04-13
 Scope: Week 5 `P2` security and cleanup changes
 Related documents:
 
-- `docs/week5-execution-plan.md`
-- `docs/week5-regression-coverage.md`
+- `docs/1.2.x/week5-execution-plan.md`
+- `docs/1.2.x/week5-regression-coverage.md`
 
 ## Goal
 

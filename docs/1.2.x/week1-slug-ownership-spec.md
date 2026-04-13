@@ -2,7 +2,7 @@
 
 Status: Approved (Week 1)
 Scope: P0 only (manual slug ownership)
-Source of truth: `docs/ISSUES.md` (Issue #5, Acceptance Criteria, Phase 1 and Phase 2)
+Source of truth: `docs/1.2.x/ISSUES.md` (Issue #5, Acceptance Criteria, Phase 1 and Phase 2)
 Approval date: 2026-04-12
 
 ## Goal
@@ -646,9 +646,9 @@ Review date: 2026-04-12
 Review scope: Week 1 `P0` design package  
 Artifacts reviewed:
 
-- `docs/week1-slug-ownership-spec.md`
-- `docs/week1-test-matrix.md`
-- `docs/week1-implementation-tickets.md`
+- `docs/1.2.x/week1-slug-ownership-spec.md`
+- `docs/1.2.x/week1-test-matrix.md`
+- `docs/1.2.x/week1-implementation-tickets.md`
 
 Decisions:
 
@@ -693,15 +693,15 @@ Delivery set:
 
 1. Approved technical design:
 
-- `docs/week1-slug-ownership-spec.md` (this file)
+- `docs/1.2.x/week1-slug-ownership-spec.md` (this file)
 
 2. Implementation-ready ticket backlog:
 
-- `docs/week1-implementation-tickets.md`
+- `docs/1.2.x/week1-implementation-tickets.md`
 
 3. Signed-off test matrix:
 
-- `docs/week1-test-matrix.md`
+- `docs/1.2.x/week1-test-matrix.md`
 
 Sign-off status:
 
@@ -763,8 +763,8 @@ It should be used to derive:
 
 Related Week 1 outputs:
 
-- `docs/week1-test-matrix.md` (Task 9)
-- `docs/week1-implementation-tickets.md` (Task 10)
+- `docs/1.2.x/week1-test-matrix.md` (Task 9)
+- `docs/1.2.x/week1-implementation-tickets.md` (Task 10)
 
 ## Week 1 Task Coverage Index
 
@@ -776,8 +776,8 @@ Related Week 1 outputs:
 6. Task 6 -> this file (`Explicit Regenerate Flow (Task 6)`)
 7. Task 7 -> this file (`Pre-Publish Notice Specification (Task 7)`)
 8. Task 8 -> this file (`Editor Coverage Expectations (Task 8)`)
-9. Task 9 -> `docs/week1-test-matrix.md`
-10. Task 10 -> `docs/week1-implementation-tickets.md`
+9. Task 9 -> `docs/1.2.x/week1-test-matrix.md`
+10. Task 10 -> `docs/1.2.x/week1-implementation-tickets.md`
 11. Task 11 -> this file (`Regression Risks and Mitigations (Task 11)`)
 12. Task 12 -> this file (`Design Review Record (Task 12)`)
 13. Task 13 -> this file (`Scope Freeze Policy (Task 13)`)

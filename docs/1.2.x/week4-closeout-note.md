@@ -4,11 +4,11 @@ Date: 2026-04-13
 Scope: Week 4 `P1` closeout
 References:
 
-- `docs/week4-execution-plan.md`
-- `docs/week4-regression-coverage.md`
-- `docs/week4-manual-qa-guide.md`
-- `docs/week4-task1-provider-contract.md`
-- `docs/week4-task4-provider-compatibility.md`
+- `docs/1.2.x/week4-execution-plan.md`
+- `docs/1.2.x/week4-regression-coverage.md`
+- `docs/1.2.x/week4-manual-qa-guide.md`
+- `docs/1.2.x/week4-task1-provider-contract.md`
+- `docs/1.2.x/week4-task4-provider-compatibility.md`
 
 ## Outcome
 

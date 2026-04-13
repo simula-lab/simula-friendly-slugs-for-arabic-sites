@@ -5,8 +5,8 @@ Scope: Validate P0 behavior contract across Classic + Block editor flows.
 Approval date: 2026-04-12
 References:
 
-- `docs/week1-slug-ownership-spec.md`
-- `docs/ISSUES.md` (`P0` manual slug ownership)
+- `docs/1.2.x/week1-slug-ownership-spec.md`
+- `docs/1.2.x/ISSUES.md` (`P0` manual slug ownership)
 
 ## Matrix Columns
 

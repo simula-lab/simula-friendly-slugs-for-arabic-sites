@@ -2,13 +2,13 @@
 
 Date: 2026-04-12
 Target Week: Apr 27-May 3, 2026
-Depends on: `docs/week2-regression-coverage.md`
+Depends on: `docs/1.2.x/week2-regression-coverage.md`
 Source documents:
 
-- `docs/week-by-week-plan.md`
-- `docs/week1-implementation-tickets.md`
-- `docs/week1-test-matrix.md`
-- `docs/ISSUES.md`
+- `docs/1.2.x/week-by-week-plan.md`
+- `docs/1.2.x/week1-implementation-tickets.md`
+- `docs/1.2.x/week1-test-matrix.md`
+- `docs/1.2.x/ISSUES.md`
 
 ## Objective
 
@@ -61,7 +61,7 @@ Review the approved Week 3 tickets:
 - `TKT-P0-W3-03`
 - `TKT-P0-W3-04`
 
-Implementation must continue to respect the P0 rules defined in `docs/ISSUES.md` and `docs/week1-slug-ownership-spec.md`.
+Implementation must continue to respect the P0 rules defined in `docs/1.2.x/ISSUES.md` and `docs/1.2.x/week1-slug-ownership-spec.md`.
 
 ### 2. Define the explicit action contract
 
@@ -179,7 +179,7 @@ Confirm that Block and Classic editors produce equivalent behavior for:
 
 ### 11. Execute Week 3 regression coverage
 
-Run and record the Week 3 scenarios mapped from `docs/week1-test-matrix.md`:
+Run and record the Week 3 scenarios mapped from `docs/1.2.x/week1-test-matrix.md`:
 
 1. `W1-07` First publish transition using `Use friendly slug`
 2. `W1-08` First publish transition using `Keep current slug`
@@ -193,7 +193,7 @@ Run and record the Week 3 scenarios mapped from `docs/week1-test-matrix.md`:
 
 ### 12. Add Week 3 verification artifact
 
-Create a Week 3 regression/QA tracking document similar to `docs/week2-regression-coverage.md` with:
+Create a Week 3 regression/QA tracking document similar to `docs/1.2.x/week2-regression-coverage.md` with:
 
 1. scenario list
 2. pass/fail status

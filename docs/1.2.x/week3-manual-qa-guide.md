@@ -4,9 +4,9 @@ Date: 2026-04-12
 Scope: Manual QA for `TKT-P0-W3-01..04`
 References:
 
-- `docs/week3-regression-coverage.md`
-- `docs/week1-test-matrix.md`
-- `docs/week3-execution-plan.md`
+- `docs/1.2.x/week3-regression-coverage.md`
+- `docs/1.2.x/week1-test-matrix.md`
+- `docs/1.2.x/week3-execution-plan.md`
 
 ## Goal
 
@@ -216,7 +216,7 @@ For each scenario, capture:
 
 ## Recording Results
 
-Copy results into `docs/week3-regression-coverage.md`:
+Copy results into `docs/1.2.x/week3-regression-coverage.md`:
 
 1. Update the execution checklist row status.
 2. Add concise notes for failures or deferrals.

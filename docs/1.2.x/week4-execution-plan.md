@@ -4,8 +4,8 @@ Date: 2026-04-13
 Target week: May 4-May 10, 2026
 Source documents:
 
-- `docs/week-by-week-plan.md`
-- `docs/ISSUES.md`
+- `docs/1.2.x/week-by-week-plan.md`
+- `docs/1.2.x/ISSUES.md`
 
 ## Objective
 

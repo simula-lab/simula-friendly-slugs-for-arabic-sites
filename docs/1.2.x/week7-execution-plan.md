@@ -5,8 +5,8 @@ Target week: May 25-May 31, 2026
 Release target: `1.2.4`
 Source documents:
 
-- `docs/week-by-week-plan.md`
-- `docs/week6-execution-plan.md`
+- `docs/1.2.x/week-by-week-plan.md`
+- `docs/1.2.x/week6-execution-plan.md`
 - `checklist-before-review.txt`
 - `readme.txt`
 - `simula-friendly-slugs-for-arabic-sites.php`

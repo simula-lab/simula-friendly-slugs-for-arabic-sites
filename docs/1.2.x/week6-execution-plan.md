@@ -4,13 +4,13 @@ Date: 2026-04-13
 Target Week: May 18-May 24, 2026
 Source documents:
 
-- `docs/week-by-week-plan.md`
-- `docs/week3-regression-coverage.md`
-- `docs/week3-closeout-note.md`
-- `docs/week4-closeout-note.md`
-- `docs/week5-closeout-note.md`
-- `docs/week5-manual-qa-guide.md`
-- `docs/ISSUES.md`
+- `docs/1.2.x/week-by-week-plan.md`
+- `docs/1.2.x/week3-regression-coverage.md`
+- `docs/1.2.x/week3-closeout-note.md`
+- `docs/1.2.x/week4-closeout-note.md`
+- `docs/1.2.x/week5-closeout-note.md`
+- `docs/1.2.x/week5-manual-qa-guide.md`
+- `docs/1.2.x/ISSUES.md`
 
 ## Objective
 
@@ -41,9 +41,9 @@ Complete release-candidate validation for the planned `1.2.4` release by closing
   - Collect the open manual-QA gaps still called out by prior docs.
   - Define the exact WordPress/PHP matrix to be used for RC validation.
 - Inputs:
-  - `docs/week3-regression-coverage.md`
-  - `docs/week4-manual-qa-guide.md`
-  - `docs/week5-manual-qa-guide.md`
+  - `docs/1.2.x/week3-regression-coverage.md`
+  - `docs/1.2.x/week4-manual-qa-guide.md`
+  - `docs/1.2.x/week5-manual-qa-guide.md`
   - current plugin header/version state
 - Acceptance Criteria:
   - A single Week 6 checklist exists for all remaining RC checks.
@@ -66,7 +66,7 @@ Complete release-candidate validation for the planned `1.2.4` release by closing
   - publish transition with divergence notice handling
   - update flow after publish
 - References:
-  - `W1-01..10`, `W1-15`, `W1-16` from `docs/week1-test-matrix.md`
+  - `W1-01..10`, `W1-15`, `W1-16` from `docs/1.2.x/week1-test-matrix.md`
 - Acceptance Criteria:
   - No post/page lifecycle flow auto-overwrites a manual slug.
   - Divergence notice behavior matches the Week 3 contract.

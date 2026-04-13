@@ -2,7 +2,7 @@
 
 Date: 2026-04-12
 Branch: `week2-p0-core-save-logic`
-Source: `docs/week1-implementation-tickets.md`
+Source: `docs/1.2.x/week1-implementation-tickets.md`
 
 ## In Scope (Week 2 only)
 
@@ -28,7 +28,7 @@ Source: `docs/week1-implementation-tickets.md`
 3. Add manual-edit detection using incoming slug, persisted slug, and last generated slug.
 4. Reintroduce `regenerate_on_change` only for unlocked plugin-owned slugs.
 5. Align `wp_unique_post_slug` behavior so uniqueness-time generation cannot bypass manual lock.
-6. Run the required Week 2 regression set in `docs/week2-regression-coverage.md`, with `W1-04` treated as a required auto-refresh case.
+6. Run the required Week 2 regression set in `docs/1.2.x/week2-regression-coverage.md`, with `W1-04` treated as a required auto-refresh case.
 
 ## Out of Scope (deferred)
 
@@ -38,4 +38,4 @@ Source: `docs/week1-implementation-tickets.md`
 
 ## Completion Gate
 
-Week 2 is complete only when all four Week 2 tickets above meet acceptance criteria and mapped tests in `docs/week1-test-matrix.md` pass.
+Week 2 is complete only when all four Week 2 tickets above meet acceptance criteria and mapped tests in `docs/1.2.x/week1-test-matrix.md` pass.

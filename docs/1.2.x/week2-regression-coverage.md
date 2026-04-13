@@ -6,7 +6,7 @@ Scope: `TKT-P0-W2-01..04`
 
 ## Purpose
 
-Track execution of Week 2 regression scenarios mapped from `docs/week1-test-matrix.md` for:
+Track execution of Week 2 regression scenarios mapped from `docs/1.2.x/week1-test-matrix.md` for:
 
 - metadata contract
 - ownership-first save logic

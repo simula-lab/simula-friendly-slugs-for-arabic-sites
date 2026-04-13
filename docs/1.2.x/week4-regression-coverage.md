@@ -4,9 +4,9 @@ Date: 2026-04-13
 Scope: `TKT-P1-W4-01..05`
 Source documents:
 
-- `docs/week4-execution-plan.md`
-- `docs/week4-task1-provider-contract.md`
-- `docs/week4-task4-provider-compatibility.md`
+- `docs/1.2.x/week4-execution-plan.md`
+- `docs/1.2.x/week4-task1-provider-contract.md`
+- `docs/1.2.x/week4-task4-provider-compatibility.md`
 
 ## Purpose
 
@@ -49,7 +49,7 @@ Mark each row as `PASS` / `FAIL` / `N/A` and include notes.
 | W4-04 | PASS   | `field_translation_service_html()` now reads from `get_translation_providers_definitions()`.                          |
 | W4-05 | PASS   | `field_translation_provider_settings_html()` renders fields from provider definitions.                                |
 | W4-06 | PASS   | Inline admin script toggles provider field groups immediately on radio change.                                        |
-| W4-07 | PASS   | Covered by code path and manual QA checklist in `docs/week4-task4-provider-compatibility.md`.                         |
+| W4-07 | PASS   | Covered by code path and manual QA checklist in `docs/1.2.x/week4-task4-provider-compatibility.md`.                         |
 | W4-08 | PASS   | Validation payload and storage now use declared `validation_key` and `option_path` metadata.                          |
 | W4-09 | PASS   | Provider normalization drops invalid definitions before UI/runtime use.                                               |
 | W4-10 | PASS   | `setup_providers()` now requires the provider class to implement the plugin interface.                                |

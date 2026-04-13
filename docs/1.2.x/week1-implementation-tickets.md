@@ -4,9 +4,9 @@ Status: Approved for engineering handoff
 Approval date: 2026-04-12
 Source documents:
 
-- `docs/week1-slug-ownership-spec.md`
-- `docs/week1-test-matrix.md`
-- `docs/ISSUES.md` (`P0` only)
+- `docs/1.2.x/week1-slug-ownership-spec.md`
+- `docs/1.2.x/week1-test-matrix.md`
+- `docs/1.2.x/ISSUES.md` (`P0` only)
 
 ## Ticket Format
 

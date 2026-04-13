@@ -4,9 +4,9 @@ Date: 2026-04-13
 Scope: Week 5 `P2` closeout
 References:
 
-- `docs/week5-execution-plan.md`
-- `docs/week5-regression-coverage.md`
-- `docs/week5-manual-qa-guide.md`
+- `docs/1.2.x/week5-execution-plan.md`
+- `docs/1.2.x/week5-regression-coverage.md`
+- `docs/1.2.x/week5-manual-qa-guide.md`
 
 ## Outcome
 

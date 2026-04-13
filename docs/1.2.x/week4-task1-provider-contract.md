@@ -5,8 +5,8 @@ Scope: `TKT-P1-W4-01`
 Source files:
 
 - `simula-friendly-slugs-for-arabic-sites.php`
-- `docs/ISSUES.md`
-- `docs/week4-execution-plan.md`
+- `docs/1.2.x/ISSUES.md`
+- `docs/1.2.x/week4-execution-plan.md`
 
 ## Objective
 
