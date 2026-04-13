@@ -15,6 +15,8 @@
 	var lastKnownStateKey = '';
 	var inflightRequest = null;
 	var refreshTimers = [];
+	var generateButtonClass = 'simula-generate-slug-button';
+	var isActionRunning = false;
 
 	function removeDivergenceNotice() {
 		notices.removeNotice( config.noticeId );
@@ -29,6 +31,10 @@
 	}
 
 	function buildAction( label, url ) {
+		if ( ! url ) {
+			return null;
+		}
+
 		return {
 			label: label,
 			onClick: function() {
@@ -50,6 +56,37 @@
 				isDismissible: true,
 			}
 		);
+	}
+
+	function setGenerateButtonBusy( busy ) {
+		var button = document.querySelector( '.' + generateButtonClass );
+		if ( ! button ) {
+			return;
+		}
+
+		button.disabled = !! busy;
+		button.textContent = busy
+			? ( ( config.labels && config.labels.generating ) || 'Generating friendly slug...' )
+			: ( ( config.labels && config.labels.generate ) || 'Generate friendly slug' );
+	}
+
+	function syncEditorSlug( slug ) {
+		if ( ! slug ) {
+			return;
+		}
+
+		var editorDispatch = dispatch( editorStore );
+		if ( editorDispatch && typeof editorDispatch.editPost === 'function' ) {
+			editorDispatch.editPost( { slug: slug } );
+		}
+
+		var slugInputs = document.querySelectorAll( 'input[aria-label="URL Slug"], input.editor-post-slug__input, input.components-text-control__input' );
+		slugInputs.forEach( function( input ) {
+			if ( input && input.value !== slug ) {
+				input.value = slug;
+				input.dispatchEvent( new window.Event( 'input', { bubbles: true } ) );
+			}
+		} );
 	}
 
 	function renderDivergenceNotice( state ) {
@@ -136,11 +173,20 @@
 	}
 
 	function runSlugAction( actionUrl ) {
+		if ( isActionRunning ) {
+			return;
+		}
+
 		var url = new window.URL( actionUrl, window.location.origin );
 		var postId = url.searchParams.get( 'post_id' ) || url.searchParams.get( 'post' ) || '';
 		var actionName = url.searchParams.get( 'simula_slug_action' ) || '';
 		if ( ! postId || ! actionName ) {
 			return;
+		}
+
+		isActionRunning = true;
+		if ( actionName === config.generateAction ) {
+			setGenerateButtonBusy( true );
 		}
 
 		var body = new window.URLSearchParams();
@@ -165,6 +211,10 @@
 					return;
 				}
 
+				if ( payload.data.divergence && payload.data.divergence.current_slug ) {
+					syncEditorSlug( payload.data.divergence.current_slug );
+				}
+
 				if ( payload.data.message && payload.data.message.text ) {
 					notices.createNotice(
 						payload.data.message.type || 'success',
@@ -182,7 +232,52 @@
 				}
 
 				scheduleRefreshBurst( postId );
+			} )
+			.finally( function() {
+				isActionRunning = false;
+				setGenerateButtonBusy( false );
 			} );
+	}
+
+	function ensureGenerateButton() {
+		if ( document.querySelector( '.' + generateButtonClass ) ) {
+			return;
+		}
+
+		var editor = select( editorStore );
+		var postId = editor && editor.getCurrentPostId ? editor.getCurrentPostId() : 0;
+		if ( ! postId ) {
+			return;
+		}
+
+		var permalinkPanel = document.querySelector( '.editor-post-url, .components-panel__body .editor-post-url__panel-toggle, .editor-post-url__input' );
+		if ( ! permalinkPanel ) {
+			return;
+		}
+
+		var container = permalinkPanel.closest( '.components-base-control, .components-panel__body, .editor-post-url' ) || permalinkPanel.parentNode;
+		if ( ! container ) {
+			return;
+		}
+
+		var button = document.createElement( 'button' );
+		button.type = 'button';
+		button.className = 'components-button is-secondary ' + generateButtonClass;
+		button.style.marginTop = '8px';
+		button.textContent = ( config.labels && config.labels.generate ) || 'Generate friendly slug';
+		button.addEventListener( 'click', function() {
+			runSlugAction(
+				config.ajaxUrl +
+				'?action=' + encodeURIComponent( config.runActionAjaxAction ) +
+				'&post_id=' + encodeURIComponent( postId ) +
+				'&simula_slug_action=' + encodeURIComponent( config.generateAction || '' )
+			);
+		} );
+
+		var wrap = document.createElement( 'div' );
+		wrap.className = 'simula-generate-slug-wrap';
+		wrap.appendChild( button );
+		container.appendChild( wrap );
 	}
 
 	function scheduleRefreshBurst( postId ) {
@@ -230,6 +325,11 @@
 		}
 
 		refreshFromEditorState();
+		ensureGenerateButton();
+		new window.MutationObserver( ensureGenerateButton ).observe( document.body, {
+			childList: true,
+			subtree: true,
+		} );
 		subscribe( refreshFromEditorState );
 	} );
 } )( window.wp, window.simulaFriendlySlugsBlockEditor );

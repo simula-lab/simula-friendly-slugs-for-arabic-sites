@@ -55,7 +55,7 @@ Status:
   - new draft, title edits, slug edits, publish, update, quick edit
 - Add/update automated tests where possible.
 - Test on supported WP and PHP versions; verify no fatal errors.
-- Prepare RC (`1.2.0-rc1`) and internal sign-off.
+- Prepare RC (`1.2.4-rc1`) and internal sign-off.
 - Output: release candidate approved.
 
 ## Week 7 (May 25-May 31): WordPress.org release and publish
@@ -68,9 +68,9 @@ Status:
 - Build final package and verify headers/assets.
 - Commit to WordPress.org SVN:
   - `/trunk` update
-  - create `/tags/1.2.0`
+  - create `/tags/1.2.4`
 - Verify plugin page reflects new version and download works.
-- Output: version `1.2.0` published successfully on WordPress.org.
+- Output: version `1.2.4` published successfully on WordPress.org.
 
 ## Release Gates (must pass before publish)
 

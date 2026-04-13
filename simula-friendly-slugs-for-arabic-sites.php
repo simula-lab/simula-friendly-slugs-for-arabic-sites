@@ -192,48 +192,48 @@ class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google implements Simula_F
     }    
 }
 
-/**
- * QA-only mock provider used to exercise multi-provider settings behavior
- * without external API dependencies.
- */
-class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Mock implements Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Interface {
+// /**
+//  * QA-only mock provider used to exercise multi-provider settings behavior
+//  * without external API dependencies.
+//  */
+// class Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Mock implements Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Interface {
 
-    private $token;
+//     private $token;
 
-    public function __construct( $key ) {
-        $this->token = sanitize_text_field( (string) $key );
-    }
+//     public function __construct( $key ) {
+//         $this->token = sanitize_text_field( (string) $key );
+//     }
 
-    public function translate( string $text ): string {
-        if ( '' === $this->token ) {
-            return $text;
-        }
+//     public function translate( string $text ): string {
+//         if ( '' === $this->token ) {
+//             return $text;
+//         }
 
-        return 'mock-' . sanitize_title( $text, '', 'save' );
-    }
+//         return 'mock-' . sanitize_title( $text, '', 'save' );
+//     }
 
-    public function validate_settings( array $raw ) {
-        $token = sanitize_text_field( $raw['key'] ?? '' );
-        $endpoint = esc_url_raw( $raw['endpoint'] ?? '' );
+//     public function validate_settings( array $raw ) {
+//         $token = sanitize_text_field( $raw['key'] ?? '' );
+//         $endpoint = esc_url_raw( $raw['endpoint'] ?? '' );
 
-        if ( '' === $token ) {
-            return new WP_Error( 'empty_mock_token', __( 'Mock provider token cannot be empty.', 'simula-friendly-slugs-for-arabic-sites' ) );
-        }
+//         if ( '' === $token ) {
+//             return new WP_Error( 'empty_mock_token', __( 'Mock provider token cannot be empty.', 'simula-friendly-slugs-for-arabic-sites' ) );
+//         }
 
-        if ( strlen( $token ) < 6 ) {
-            return new WP_Error( 'invalid_mock_token', __( 'Mock provider token must be at least 6 characters.', 'simula-friendly-slugs-for-arabic-sites' ) );
-        }
+//         if ( strlen( $token ) < 6 ) {
+//             return new WP_Error( 'invalid_mock_token', __( 'Mock provider token must be at least 6 characters.', 'simula-friendly-slugs-for-arabic-sites' ) );
+//         }
 
-        if ( '' !== $endpoint && ! wp_http_validate_url( $endpoint ) ) {
-            return new WP_Error( 'invalid_mock_endpoint', __( 'Mock provider endpoint must be a valid URL.', 'simula-friendly-slugs-for-arabic-sites' ) );
-        }
+//         if ( '' !== $endpoint && ! wp_http_validate_url( $endpoint ) ) {
+//             return new WP_Error( 'invalid_mock_endpoint', __( 'Mock provider endpoint must be a valid URL.', 'simula-friendly-slugs-for-arabic-sites' ) );
+//         }
 
-        return [
-            'key' => $token,
-            'endpoint' => $endpoint,
-        ];
-    }
-}
+//         return [
+//             'key' => $token,
+//             'endpoint' => $endpoint,
+//         ];
+//     }
+// }
 
 
 // // Custom provider
@@ -403,6 +403,15 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     /** @var bool Request-scoped global uniqueness override bypass. */
     private $skip_unique_override_globally = false;
 
+    /**
+     * Supported slug-generation methods currently exposed by the plugin UI.
+     *
+     * @return string[]
+     */
+    private function get_supported_methods(): array {
+        return [ 'wp_transliteration', 'arabizi', 'translation', 'hash', 'none' ];
+    }
+
     /** Setup WordPress hooks */
     private function __construct() {
         // Load textdomain
@@ -461,6 +470,18 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         return sanitize_title( (string) $slug, '', 'save' );
+    }
+
+    /**
+     * Normalize a saved method against the supported UI/runtime contract.
+     *
+     * @param mixed $method
+     * @return string
+     */
+    private function normalize_method_value( $method ): string {
+        $method = is_scalar( $method ) ? (string) $method : '';
+
+        return in_array( $method, $this->get_supported_methods(), true ) ? $method : 'none';
     }
 
     /**
@@ -836,7 +857,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
      */
     private function generate_plugin_slug_suggestion( string $title, string $fallback_slug = '' ): string {
         $opts = get_option( self::OPTION_KEY, [] );
-        $method = $opts['method'] ?? 'none';
+        $method = $this->normalize_method_value( $opts['method'] ?? 'none' );
 
         if ( 'none' === $method || ! $this->is_slug_generation_eligible_title( $title ) ) {
             return '';
@@ -992,10 +1013,13 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             'manual_lock' => $manual_lock,
             'last_generated_slug' => $ownership_state['last_generated_slug'] ?? '',
             'is_acknowledged' => $is_acknowledged,
-            'action_urls' => $has_divergence ? [
-                self::ACTION_KEEP_CURRENT => $this->get_slug_action_url( $post_id, self::ACTION_KEEP_CURRENT ),
-                self::ACTION_USE_FRIENDLY => $this->get_slug_action_url( $post_id, self::ACTION_USE_FRIENDLY ),
-            ] : [],
+            'action_urls' => array_filter(
+                [
+                    self::ACTION_REGENERATE => $is_supported ? $this->get_slug_action_url( $post_id, self::ACTION_REGENERATE ) : '',
+                    self::ACTION_KEEP_CURRENT => $has_divergence ? $this->get_slug_action_url( $post_id, self::ACTION_KEEP_CURRENT ) : '',
+                    self::ACTION_USE_FRIENDLY => $has_divergence ? $this->get_slug_action_url( $post_id, self::ACTION_USE_FRIENDLY ) : '',
+                ]
+            ),
         ];
     }
 
@@ -1135,6 +1159,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 'statusMessage' => '' !== $status ? $this->get_slug_action_status_message( $status ) : null,
                 'noticeId' => 'simula-friendly-slugs-divergence-notice',
                 'statusNoticeId' => 'simula-friendly-slugs-status-notice',
+                'generateAction' => self::ACTION_REGENERATE,
                 'labels' => [
                     'title' => __( 'Friendly slug differs from the current slug.', 'simula-friendly-slugs-for-arabic-sites' ),
                     'body' => __( 'Choose whether to keep the current slug or apply the plugin suggestion.', 'simula-friendly-slugs-for-arabic-sites' ),
@@ -1142,6 +1167,8 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                     'suggested' => __( 'Suggested slug:', 'simula-friendly-slugs-for-arabic-sites' ),
                     'keep' => __( 'Keep current slug', 'simula-friendly-slugs-for-arabic-sites' ),
                     'useFriendly' => __( 'Use friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'generate' => __( 'Generate friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'generating' => __( 'Generating friendly slug...', 'simula-friendly-slugs-for-arabic-sites' ),
                 ],
             ]
         );
@@ -1177,6 +1204,13 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
                 'ajaxAction' => 'simula_run_slug_action',
                 'ajaxNonce' => wp_create_nonce( self::AJAX_NONCE ),
+                'stateAjaxAction' => 'simula_get_slug_divergence_state',
+                'postId' => $this->get_current_admin_post_id(),
+                'generateAction' => self::ACTION_REGENERATE,
+                'labels' => [
+                    'generate' => __( 'Generate friendly slug', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'generating' => __( 'Generating friendly slug...', 'simula-friendly-slugs-for-arabic-sites' ),
+                ],
             ]
         );
     }
@@ -1543,27 +1577,27 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                         ],
                     ],
                 ],
-                'mock' => [
-                    'label' => __( 'Mock Provider', 'simula-friendly-slugs-for-arabic-sites' ),
-                    'description' => __( 'QA-only provider for testing multi-provider settings flows without external API calls.', 'simula-friendly-slugs-for-arabic-sites' ),
-                    'class' => 'Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Mock',
-                    'fields' => [
-                        [
-                            'type' => 'text',
-                            'option_path' => [ 'api_keys', 'mock' ],
-                            'validation_key' => 'key',
-                            'label' => __( 'Mock Token', 'simula-friendly-slugs-for-arabic-sites' ),
-                            'description' => __( 'Enter any token with at least 6 characters.', 'simula-friendly-slugs-for-arabic-sites' ),
-                        ],
-                        [
-                            'type' => 'url',
-                            'option_path' => [ 'provider_endpoints', 'mock' ],
-                            'validation_key' => 'endpoint',
-                            'label' => __( 'Mock Endpoint', 'simula-friendly-slugs-for-arabic-sites' ),
-                            'description' => __( 'Optional URL used only to test provider-specific field persistence.', 'simula-friendly-slugs-for-arabic-sites' ),
-                        ],
-                    ],
-                ],
+                // 'mock' => [
+                //     'label' => __( 'Mock Provider', 'simula-friendly-slugs-for-arabic-sites' ),
+                //     'description' => __( 'QA-only provider for testing multi-provider settings flows without external API calls.', 'simula-friendly-slugs-for-arabic-sites' ),
+                //     'class' => 'Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Mock',
+                //     'fields' => [
+                //         [
+                //             'type' => 'text',
+                //             'option_path' => [ 'api_keys', 'mock' ],
+                //             'validation_key' => 'key',
+                //             'label' => __( 'Mock Token', 'simula-friendly-slugs-for-arabic-sites' ),
+                //             'description' => __( 'Enter any token with at least 6 characters.', 'simula-friendly-slugs-for-arabic-sites' ),
+                //         ],
+                //         [
+                //             'type' => 'url',
+                //             'option_path' => [ 'provider_endpoints', 'mock' ],
+                //             'validation_key' => 'endpoint',
+                //             'label' => __( 'Mock Endpoint', 'simula-friendly-slugs-for-arabic-sites' ),
+                //             'description' => __( 'Optional URL used only to test provider-specific field persistence.', 'simula-friendly-slugs-for-arabic-sites' ),
+                //         ],
+                //     ],
+                // ],
                 // you can add 'custom' here by default if you wish
                 // ],
                 // 'custom' => [
@@ -1754,7 +1788,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
      */
     public function field_method_html() {
         $options = get_option( self::OPTION_KEY, [] );
-        $current = $options['method'] ?? 'none';
+        $current = $this->normalize_method_value( $options['method'] ?? 'none' );
         $methods = [
             'none'               => [ 'label' => __( 'No Change', 'simula-friendly-slugs-for-arabic-sites' ), 'desc' => __( 'Leave the slug unchanged.', 'simula-friendly-slugs-for-arabic-sites' ) ],
             'wp_transliteration' => [ 'label' => __( 'Transliteration', 'simula-friendly-slugs-for-arabic-sites' ), 'desc' => __( 'Use PHP/ICU to transliterate Arabic characters.', 'simula-friendly-slugs-for-arabic-sites' ) ],
@@ -1862,6 +1896,13 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                         break;
 
                     case 'api_key':
+                        printf(
+                            '<input id="%1$s" type="password" name="%2$s" value="" class="regular-text" autocomplete="new-password" spellcheck="false">',
+                            esc_attr( $field_id ),
+                            esc_attr( $field_name )
+                        );
+                        break;
+
                     case 'text':
                     default:
                         printf(
@@ -1878,6 +1919,10 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                         '<p class="description">%s</p>',
                         esc_html( $field['description'] )
                     );
+                }
+
+                if ( 'api_key' === $field_type ) {
+                    echo '<p class="description">' . esc_html__( 'Stored keys stay unchanged when this field is left blank. Enter a new value only when you want to replace the existing key.', 'simula-friendly-slugs-for-arabic-sites' ) . '</p>';
                 }
 
                 echo '</div>';
@@ -1936,6 +1981,10 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     private function build_provider_validation_payload( array $input, array $provider_definition, string $service ): array {
         $payload = [];
         $fields = $provider_definition['fields'] ?? [];
+        $previous = get_option( self::OPTION_KEY, [] );
+        if ( is_wp_error( $previous ) || ! is_array( $previous ) ) {
+            $previous = [];
+        }
 
         if ( is_array( $fields ) ) {
             foreach ( $fields as $field ) {
@@ -1947,12 +1996,18 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 }
 
                 $value = $this->get_nested_option_value( $input, $option_path );
+                if ( 'api_key' === ( $field['type'] ?? '' ) && '' === ( is_scalar( $value ) ? trim( (string) $value ) : '' ) ) {
+                    $value = $this->get_nested_option_value( $previous, $option_path );
+                }
                 $payload[ $validation_key ] = is_scalar( $value ) ? (string) $value : '';
             }
         }
 
         if ( ! array_key_exists( 'key', $payload ) ) {
             $value = $this->get_nested_option_value( $input, [ 'api_keys', $service ] );
+            if ( '' === ( is_scalar( $value ) ? trim( (string) $value ) : '' ) ) {
+                $value = $this->get_nested_option_value( $previous, [ 'api_keys', $service ] );
+            }
             $payload['key'] = is_scalar( $value ) ? (string) $value : '';
         }
 
@@ -1977,6 +2032,10 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     private function apply_provider_validation_result( array &$valid, array $provider_definition, string $service, $result, array $fallback_payload ): void {
         $fields = $provider_definition['fields'] ?? [];
         $result_map = is_array( $result ) ? $result : [];
+        $previous = get_option( self::OPTION_KEY, [] );
+        if ( is_wp_error( $previous ) || ! is_array( $previous ) ) {
+            $previous = [];
+        }
 
         if ( ! is_array( $fields ) || empty( $fields ) ) {
             $valid['api_keys'][ $service ] = sanitize_text_field( is_string( $result ) ? $result : (string) ( $fallback_payload['key'] ?? '' ) );
@@ -2002,6 +2061,10 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 $value = $fallback_payload[ $validation_key ];
             } else {
                 $value = $this->get_nested_option_value( $valid, $option_path );
+            }
+
+            if ( 'api_key' === ( $field['type'] ?? '' ) && '' === ( is_scalar( $value ) ? trim( (string) $value ) : '' ) ) {
+                $value = $this->get_nested_option_value( $previous, $option_path );
             }
 
             $this->set_nested_option_value(
@@ -2140,8 +2203,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             return $previous;
         }
 
-        $valid   = [];
-        $methods = [ 'wp_transliteration', 'custom_transliteration', 'arabizi', 'translation', 'hash', 'none' ];
+        $valid = [];
 
         $previous_api_keys = [];
         if ( isset( $previous['api_keys'] ) && is_array( $previous['api_keys'] ) ) {
@@ -2154,11 +2216,9 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         }
 
         // 1) Method
-        if ( isset( $input['method'] ) && in_array( $input['method'], $methods, true ) ) {
-            $valid['method'] = $input['method'];
-        } else {
-            $valid['method'] = $previous['method'] ?? 'none';
-        }
+        $submitted_method = $this->normalize_method_value( $input['method'] ?? '' );
+        $previous_method  = $this->normalize_method_value( $previous['method'] ?? 'none' );
+        $valid['method']  = isset( $input['method'] ) ? $submitted_method : $previous_method;
 
         // 2) If translation
         if ( 'translation' === $valid['method'] ) {
@@ -2274,7 +2334,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             return $override_slug;
         }
 
-        $method = ( get_option( self::OPTION_KEY, [] )['method'] ?? 'none' );
+        $method = $this->normalize_method_value( get_option( self::OPTION_KEY, [] )['method'] ?? 'none' );
         if ( 'none' === $method  ) {
             return $override_slug;
         }
@@ -2321,7 +2381,7 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
      */
     public function maybe_generate_slug_on_save( array $data, array $postarr ): array {
         $opts = get_option( self::OPTION_KEY, [] );
-        $method = $opts['method'] ?? 'none';
+        $method = $this->normalize_method_value( $opts['method'] ?? 'none' );
         $post_id = $this->resolve_post_id_from_save_payload( $data, $postarr );
         $regenerate_on_change = ! empty( $opts['regenerate_on_change'] );
 
