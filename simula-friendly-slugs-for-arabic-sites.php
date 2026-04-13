@@ -760,28 +760,121 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
     }
 
     /**
-     * Returns the list of translation providers,
+     * Returns the normalized list of translation providers,
      * filtered via the single canonical filter.
      *
-     * @return array<string,array{label:string,class:string}>
+     * @return array<string,array<string,mixed>>
      */
     private static function get_translation_providers_definitions(): array {
-        return (array) apply_filters(
+        $definitions = (array) apply_filters(
             'simula_friendly_slugs_for_arabic_sites_translation_providers',
             [
                 'google' => [
                     'label' => __( 'Google Translate', 'simula-friendly-slugs-for-arabic-sites' ),
+                    'description' => __( 'Use Google Translate API.', 'simula-friendly-slugs-for-arabic-sites' ),
                     'class' => 'Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Google',
+                    'fields' => [
+                        [
+                            'type' => 'api_key',
+                            'option_path' => [ 'api_keys', 'google' ],
+                            'label' => __( 'Google API Key', 'simula-friendly-slugs-for-arabic-sites' ),
+                            'description' => __( 'API key used for Google Translate requests.', 'simula-friendly-slugs-for-arabic-sites' ),
+                        ],
+                    ],
                 ],
                 // you can add 'custom' here by default if you wish
                 // ],
                 // 'custom' => [
-                //     'label' => __( 'Custom API',      'simula-friendly-slugs-for-arabic-sites' ),
+                //     'label' => __( 'Custom API', 'simula-friendly-slugs-for-arabic-sites' ),
+                //     'description' => __( 'Use a custom translation endpoint.', 'simula-friendly-slugs-for-arabic-sites' ),
                 //     'class' => 'Simula_Friendly_Slugs_For_Arabic_Sites_Provider_Custom',
+                //     'fields' => [
+                //         [
+                //             'type' => 'url',
+                //             'option_path' => [ 'custom_api_endpoint' ],
+                //             'label' => __( 'Custom API Endpoint', 'simula-friendly-slugs-for-arabic-sites' ),
+                //         ],
+                //         [
+                //             'type' => 'api_key',
+                //             'option_path' => [ 'api_keys', 'custom' ],
+                //             'label' => __( 'Custom API Key', 'simula-friendly-slugs-for-arabic-sites' ),
+                //         ],
+                //     ],
                 // ]
             ]
         );
-    }    
+
+        $normalized = [];
+
+        foreach ( $definitions as $key => $definition ) {
+            if ( ! is_string( $key ) || '' === $key || ! is_array( $definition ) ) {
+                continue;
+            }
+
+            $label = isset( $definition['label'] ) ? wp_strip_all_tags( (string) $definition['label'] ) : '';
+            $class = isset( $definition['class'] ) ? trim( (string) $definition['class'] ) : '';
+
+            if ( '' === $label || '' === $class ) {
+                continue;
+            }
+
+            $provider = [
+                'label' => $label,
+                'class' => $class,
+            ];
+
+            if ( isset( $definition['description'] ) ) {
+                $provider['description'] = wp_strip_all_tags( (string) $definition['description'] );
+            }
+
+            $provider['fields'] = [];
+            if ( isset( $definition['fields'] ) && is_array( $definition['fields'] ) ) {
+                foreach ( $definition['fields'] as $field ) {
+                    if ( ! is_array( $field ) ) {
+                        continue;
+                    }
+
+                    $type = isset( $field['type'] ) ? sanitize_key( (string) $field['type'] ) : '';
+                    $field_label = isset( $field['label'] ) ? wp_strip_all_tags( (string) $field['label'] ) : '';
+                    $option_path = $field['option_path'] ?? null;
+
+                    if ( '' === $type || '' === $field_label || ! is_array( $option_path ) || empty( $option_path ) ) {
+                        continue;
+                    }
+
+                    $normalized_path = [];
+                    foreach ( $option_path as $segment ) {
+                        if ( ! is_scalar( $segment ) ) {
+                            continue 2;
+                        }
+
+                        $segment = (string) $segment;
+                        if ( '' === $segment ) {
+                            continue 2;
+                        }
+
+                        $normalized_path[] = $segment;
+                    }
+
+                    $normalized_field = [
+                        'type' => $type,
+                        'label' => $field_label,
+                        'option_path' => $normalized_path,
+                    ];
+
+                    if ( isset( $field['description'] ) ) {
+                        $normalized_field['description'] = wp_strip_all_tags( (string) $field['description'] );
+                    }
+
+                    $provider['fields'][] = $normalized_field;
+                }
+            }
+
+            $normalized[ $key ] = $provider;
+        }
+
+        return $normalized;
+    }
 
     /** Add settings page under Settings menu */
     public function register_settings_page() {
@@ -839,11 +932,11 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             'simula_friendly_slugs_for_arabic_sites_translation'
         );
     
-        // Field: API key input for Google
+        // Field: provider-specific settings
         add_settings_field(
-            'google_api_key',
-            __( 'Google API Key', 'simula-friendly-slugs-for-arabic-sites' ),
-            [ $this, 'field_api_key_html' ],
+            'translation_provider_fields',
+            __( 'Provider Settings', 'simula-friendly-slugs-for-arabic-sites' ),
+            [ $this, 'field_translation_provider_settings_html' ],
             'simula-friendly-slugs-for-arabic-sites',
             'simula_friendly_slugs_for_arabic_sites_translation'
         );
@@ -909,34 +1002,177 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
 
     public function field_translation_service_html() {
         $options   = get_option( self::OPTION_KEY, [] );
-        $current   = $options['translation_service'] ?? 'google';
-        $providers = [
-            'google' => [ 'label' => __( 'Google Translate', 'simula-friendly-slugs-for-arabic-sites' ), 'desc' => __( 'Use Google Translate API.', 'simula-friendly-slugs-for-arabic-sites' ) ],
-            // Add other providers here with 'key' => [ label, desc ]
-        ];
+        $providers = self::get_translation_providers_definitions();
+        $current   = $this->get_selected_translation_service( $options, $providers );
+
         foreach ( $providers as $key => $data ) {
+            $description = $data['description'] ?? '';
             printf(
                 '<label style="display:block; margin-bottom:8px;"><input type="radio" name="%s[translation_service]" value="%s"%s> <strong>%s</strong> <span class="description" style="margin-left:8px;">%s</span></label>',
                 esc_attr( self::OPTION_KEY ),
                 esc_attr( $key ),
                 checked( $current, $key, false ),
                 esc_html( $data['label'] ),
-                esc_html( $data['desc'] )
+                esc_html( $description )
             );
         }
     }
 
     /**
-     * Render API key input
+     * Render provider-defined settings for the currently selected provider.
      */
-    public function field_api_key_html() {
-        $options = get_option( self::OPTION_KEY, [] );
-        $value   = $options['api_keys']['google'] ?? '';
-        printf(
-            '<input type="text" name="%s[api_keys][google]" value="%s" class="regular-text">',
-            esc_attr( self::OPTION_KEY ),
-            esc_attr( $value )
+    public function field_translation_provider_settings_html() {
+        $options   = get_option( self::OPTION_KEY, [] );
+        $providers = self::get_translation_providers_definitions();
+        $service   = $this->get_selected_translation_service( $options, $providers );
+
+        if ( empty( $providers ) || '' === $service || ! isset( $providers[ $service ] ) ) {
+            echo '<p class="description">' . esc_html__( 'No provider settings are available.', 'simula-friendly-slugs-for-arabic-sites' ) . '</p>';
+            return;
+        }
+
+        echo '<div id="simula-translation-provider-fields">';
+
+        foreach ( $providers as $provider_key => $provider_definition ) {
+            $fields = $provider_definition['fields'] ?? [];
+            $is_active = $provider_key === $service;
+
+            printf(
+                '<div class="simula-provider-fields-group" data-provider="%1$s"%2$s>',
+                esc_attr( $provider_key ),
+                $is_active ? '' : ' style="display:none;"'
+            );
+
+            if ( empty( $fields ) ) {
+                echo '<p class="description">' . esc_html__( 'This provider does not require additional settings.', 'simula-friendly-slugs-for-arabic-sites' ) . '</p>';
+                echo '</div>';
+                continue;
+            }
+
+            foreach ( $fields as $field ) {
+                $field_name = $this->build_option_input_name( $field['option_path'] );
+                $field_id   = $this->build_provider_field_id( $provider_key, $field['option_path'] );
+                $field_type = $field['type'];
+                $value      = $this->get_nested_option_value( $options, $field['option_path'] );
+
+                if ( ! is_scalar( $value ) ) {
+                    $value = '';
+                }
+
+                echo '<div style="margin-bottom:12px;">';
+                printf(
+                    '<label for="%1$s" style="display:block; font-weight:600; margin-bottom:4px;">%2$s</label>',
+                    esc_attr( $field_id ),
+                    esc_html( $field['label'] )
+                );
+
+                switch ( $field_type ) {
+                    case 'url':
+                        printf(
+                            '<input id="%1$s" type="url" name="%2$s" value="%3$s" class="regular-text">',
+                            esc_attr( $field_id ),
+                            esc_attr( $field_name ),
+                            esc_attr( (string) $value )
+                        );
+                        break;
+
+                    case 'api_key':
+                    case 'text':
+                    default:
+                        printf(
+                            '<input id="%1$s" type="text" name="%2$s" value="%3$s" class="regular-text">',
+                            esc_attr( $field_id ),
+                            esc_attr( $field_name ),
+                            esc_attr( (string) $value )
+                        );
+                        break;
+                }
+
+                if ( ! empty( $field['description'] ) ) {
+                    printf(
+                        '<p class="description">%s</p>',
+                        esc_html( $field['description'] )
+                    );
+                }
+
+                echo '</div>';
+            }
+
+            echo '</div>';
+        }
+
+        echo '</div>';
+    }
+
+    /**
+     * Resolve the selected translation service against known provider definitions.
+     *
+     * @param array $options
+     * @param array $providers
+     * @return string
+     */
+    private function get_selected_translation_service( array $options, array $providers ): string {
+        $keys    = array_keys( $providers );
+        $default = in_array( 'google', $keys, true ) ? 'google' : ( $keys[0] ?? '' );
+        $current = $options['translation_service'] ?? $default;
+
+        return isset( $providers[ $current ] ) ? $current : $default;
+    }
+
+    /**
+     * Resolve a nested option value from an array path.
+     *
+     * @param array $options
+     * @param array $path
+     * @return mixed
+     */
+    private function get_nested_option_value( array $options, array $path ) {
+        $value = $options;
+
+        foreach ( $path as $segment ) {
+            if ( ! is_array( $value ) || ! array_key_exists( $segment, $value ) ) {
+                return '';
+            }
+
+            $value = $value[ $segment ];
+        }
+
+        return $value;
+    }
+
+    /**
+     * Build an option input name from an array path.
+     *
+     * @param array $path
+     * @return string
+     */
+    private function build_option_input_name( array $path ): string {
+        $name = self::OPTION_KEY;
+
+        foreach ( $path as $segment ) {
+            $name .= '[' . $segment . ']';
+        }
+
+        return $name;
+    }
+
+    /**
+     * Build a deterministic input ID for a provider field.
+     *
+     * @param string $service
+     * @param array  $path
+     * @return string
+     */
+    private function build_provider_field_id( string $service, array $path ): string {
+        $parts = array_merge( [ self::OPTION_KEY, $service ], $path );
+        $parts = array_map(
+            static function ( $part ) {
+                return sanitize_html_class( (string) $part );
+            },
+            $parts
         );
+
+        return implode( '-', array_filter( $parts, 'strlen' ) );
     }
 
     /**
@@ -1046,17 +1282,6 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         return $valid;
     }
 
-    public function field_custom_endpoint_html() {
-        $options  = get_option( self::OPTION_KEY, [] );
-        if ( ( $options['method'] ?? '' ) !== 'translation' || ( $options['translation_service'] ?? '' ) !== 'custom' ) {
-            return;
-        }
-        $endpoint = $options['custom_api_endpoint'] ?? '';
-        ?>
-        <input type="url" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[custom_api_endpoint]" value="<?php echo esc_attr( $endpoint ); ?>" class="regular-text" />
-        <?php
-    }
-    
     /** Render settings page */
     public function render_settings_page() {
         ?>
@@ -1070,6 +1295,36 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
                 ?>
             </form>
         </div>
+        <script>
+        (function() {
+            var radios = document.querySelectorAll('input[name="<?php echo esc_js( self::OPTION_KEY ); ?>[translation_service]"]');
+            var groups = document.querySelectorAll('.simula-provider-fields-group');
+
+            function updateProviderFields() {
+                var active = '';
+
+                radios.forEach(function(radio) {
+                    if (radio.checked) {
+                        active = radio.value;
+                    }
+                });
+
+                groups.forEach(function(group) {
+                    group.style.display = group.getAttribute('data-provider') === active ? '' : 'none';
+                });
+            }
+
+            if (!radios.length || !groups.length) {
+                return;
+            }
+
+            radios.forEach(function(radio) {
+                radio.addEventListener('change', updateProviderFields);
+            });
+
+            updateProviderFields();
+        }());
+        </script>
         <?php
     }
 
