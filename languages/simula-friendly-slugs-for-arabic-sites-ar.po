@@ -2,7 +2,7 @@
 # This file is distributed under the GPL2.
 msgid ""
 msgstr ""
-"Project-Id-Version: Simula Friendly Slugs for Arabic Sites 0.9.6\n"
+"Project-Id-Version: Simula Friendly Slugs for Arabic Sites 1.2.4\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/simula-friendly-slugs-for-arabic-sites\n"
 "Last-Translator: Oussama Jarrousse\n"
 "Language-Team: Arabic\n"
