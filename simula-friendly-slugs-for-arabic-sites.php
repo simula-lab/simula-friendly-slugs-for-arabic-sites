@@ -965,6 +965,16 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         $valid   = [];
         $methods = [ 'wp_transliteration', 'custom_transliteration', 'arabizi', 'translation', 'hash', 'none' ];
 
+        $previous_api_keys = [];
+        if ( isset( $previous['api_keys'] ) && is_array( $previous['api_keys'] ) ) {
+            $previous_api_keys = $previous['api_keys'];
+        }
+
+        $valid['api_keys'] = $previous_api_keys;
+        if ( isset( $previous['custom_api_endpoint'] ) ) {
+            $valid['custom_api_endpoint'] = $previous['custom_api_endpoint'];
+        }
+
         // 1) Method
         if ( isset( $input['method'] ) && in_array( $input['method'], $methods, true ) ) {
             $valid['method'] = $input['method'];
@@ -989,36 +999,37 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
             }
             $valid['translation_service'] = $service;
 
-            // Validate provider credentials
-            $valid['api_keys'] = [];
-            foreach ( $services as $s ) {
-                $raw_key      = $input['api_keys'][ $s ] ?? '';
-                $raw_endpoint = $input['custom_api_endpoint'] ?? '';
+            // Validate only the selected provider; preserve saved settings for all others.
+            $raw_key      = $input['api_keys'][ $service ] ?? '';
+            $raw_endpoint = $input['custom_api_endpoint'] ?? '';
 
-                if ( isset( $this->providers[ $s ] ) && method_exists( $this->providers[ $s ], 'validate_settings' ) ) {
-                    $result = $this->providers[ $s ]->validate_settings([
-                        'key'      => $raw_key,
-                        'endpoint' => $raw_endpoint,
-                    ]);
-                    if ( is_wp_error( $result ) ) {
-                        add_settings_error(
-                            self::OPTION_KEY,
-                            "{$s}_invalid",
-                            $result->get_error_message(),
-                            'error'
-                        );
-                        return $previous;
-                    }
-                    // on success, result is either string or array
-                    if ( is_array( $result ) ) {
-                        $valid['api_keys'][ $s ] = sanitize_text_field( $result['key'] ?? '' );
-                        $valid['custom_api_endpoint'] = esc_url_raw( $result['endpoint'] ?? '' );
-                    } else {
-                        $valid['api_keys'][ $s ] = sanitize_text_field( $result );
-                    }
+            if ( isset( $this->providers[ $service ] ) && method_exists( $this->providers[ $service ], 'validate_settings' ) ) {
+                $result = $this->providers[ $service ]->validate_settings([
+                    'key'      => $raw_key,
+                    'endpoint' => $raw_endpoint,
+                ]);
+                if ( is_wp_error( $result ) ) {
+                    add_settings_error(
+                        self::OPTION_KEY,
+                        "{$service}_invalid",
+                        $result->get_error_message(),
+                        'error'
+                    );
+                    return $previous;
+                }
+
+                if ( is_array( $result ) ) {
+                    $valid['api_keys'][ $service ] = sanitize_text_field( $result['key'] ?? '' );
+                    $valid['custom_api_endpoint'] = esc_url_raw( $result['endpoint'] ?? '' );
                 } else {
-                    // fallback: just sanitize text
-                    $valid['api_keys'][ $s ] = sanitize_text_field( $raw_key );
+                    $valid['api_keys'][ $service ] = sanitize_text_field( $result );
+                }
+            } else {
+                // If a selected provider has no runtime validator, store its submitted values safely.
+                $valid['api_keys'][ $service ] = sanitize_text_field( $raw_key );
+
+                if ( isset( $input['custom_api_endpoint'] ) ) {
+                    $valid['custom_api_endpoint'] = esc_url_raw( $raw_endpoint );
                 }
             }
         }
@@ -1027,12 +1038,6 @@ class Simula_Friendly_Slugs_For_Arabic_Sites {
         if ( 'translation' !== $valid['method'] ) {
             if ( isset( $previous['translation_service'] ) ) {
                 $valid['translation_service'] = $previous['translation_service'];
-            }
-            if ( isset( $previous['api_keys'] ) ) {
-                $valid['api_keys'] = $previous['api_keys'];
-            }
-            if ( isset( $previous['custom_api_endpoint'] ) ) {
-                $valid['custom_api_endpoint'] = $previous['custom_api_endpoint'];
             }
         }
 
