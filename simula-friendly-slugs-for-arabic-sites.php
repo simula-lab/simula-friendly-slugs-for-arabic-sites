@@ -3,7 +3,7 @@
  * Plugin Name: Simula Friendly Slugs for Arabic Sites
  * Plugin URI: https://github.com/simula-lab/simula-friendly-slugs-for-arabic-sites
  * Description: Automatically generate friendly slugs for Arabic posts/pages via transliteration, 3arabizi or translation.
- * Version: 1.2.3
+ * Version: 1.2.4
  * Requires at least: 4.6
  * Requires PHP: 7.0
  * Author: Simula

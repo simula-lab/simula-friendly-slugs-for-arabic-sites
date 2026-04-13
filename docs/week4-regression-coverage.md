@@ -41,18 +41,18 @@ Track verification for the Week 4 provider/settings refactor:
 
 Mark each row as `PASS` / `FAIL` / `N/A` and include notes.
 
-| ID    | Status | Notes |
-| ----- | ------ | ----- |
-| W4-01 | PASS   | `sanitize_settings()` now validates only the selected provider payload. |
+| ID    | Status | Notes                                                                                                                 |
+| ----- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| W4-01 | PASS   | `sanitize_settings()` now validates only the selected provider payload.                                               |
 | W4-02 | PASS   | Selected-provider `validate_settings()` errors still return `add_settings_error(...)` and preserve previous settings. |
-| W4-03 | PASS   | `api_keys` and other saved values are seeded from previous options before selected-provider validation. |
-| W4-04 | PASS   | `field_translation_service_html()` now reads from `get_translation_providers_definitions()`. |
-| W4-05 | PASS   | `field_translation_provider_settings_html()` renders fields from provider definitions. |
-| W4-06 | PASS   | Inline admin script toggles provider field groups immediately on radio change. |
-| W4-07 | PASS   | Covered by code path and manual QA checklist in `docs/week4-task4-provider-compatibility.md`. |
-| W4-08 | PASS   | Validation payload and storage now use declared `validation_key` and `option_path` metadata. |
-| W4-09 | PASS   | Provider normalization drops invalid definitions before UI/runtime use. |
-| W4-10 | PASS   | `setup_providers()` now requires the provider class to implement the plugin interface. |
+| W4-03 | PASS   | `api_keys` and other saved values are seeded from previous options before selected-provider validation.               |
+| W4-04 | PASS   | `field_translation_service_html()` now reads from `get_translation_providers_definitions()`.                          |
+| W4-05 | PASS   | `field_translation_provider_settings_html()` renders fields from provider definitions.                                |
+| W4-06 | PASS   | Inline admin script toggles provider field groups immediately on radio change.                                        |
+| W4-07 | PASS   | Covered by code path and manual QA checklist in `docs/week4-task4-provider-compatibility.md`.                         |
+| W4-08 | PASS   | Validation payload and storage now use declared `validation_key` and `option_path` metadata.                          |
+| W4-09 | PASS   | Provider normalization drops invalid definitions before UI/runtime use.                                               |
+| W4-10 | PASS   | `setup_providers()` now requires the provider class to implement the plugin interface.                                |
 
 ## Workspace Verification Completed
 
@@ -87,3 +87,17 @@ Current status:
 
 - Workspace verification completed.
 - WordPress runtime QA remains required for end-to-end admin confirmation.
+
+Current status:
+
+- Manual QA has started.
+- `W4-MQ-01` is confirmed `PASS`
+- `W4-MQ-02` is confirmed `PASS`
+- `W4-MQ-03` is confirmed `PASS`
+- `W4-MQ-04` is confirmed `PASS`
+- `W4-MQ-05` is confirmed `PASS`
+- `W4-MQ-06` is confirmed `PASS`
+- `W4-MQ-07` is confirmed `PASS`
+- `W4-MQ-08` is confirmed `PASS`
+- `W4-MQ-09` is confirmed `PASS`
+- `W4-MQ-10` is confirmed `PASS`

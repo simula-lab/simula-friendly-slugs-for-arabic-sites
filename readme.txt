@@ -4,7 +4,7 @@ Tags: arabic, slug
 Requires at least: 4.6
 Tested up to: 6.9
 Requires PHP: 7.0
-Stable tag: 1.2.3
+Stable tag: 1.2.4
 License: GPL v2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Donate link: https://simulalab.org
